@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.example/schemas/project-manifest.schema.json",
+  "title": "Project Manifest",
+  "type": "object",
+  "required": ["project_id", "title", "created_at", "source", "stages"],
+  "properties": {
+    "project_id": {"type": "string", "minLength": 1},
+    "title": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "subject": {"type": "string"},
+        "grade": {"type": "string"},
+        "book": {"type": "string"},
+        "source_name": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "source": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"},
+        "page_count": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": true
+    },
+    "stages": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {"enum": ["pending", "running", "completed", "failed", "skipped"]},
+          "started_at": {"type": "string", "format": "date-time"},
+          "completed_at": {"type": "string", "format": "date-time"},
+          "input_fingerprint": {"type": "string"},
+          "output_fingerprint": {"type": "string"},
+          "retry_count": {"type": "integer", "minimum": 0},
+          "error": {"type": ["string", "null"]}
+        },
+        "additionalProperties": true
+      }
+    },
+    "exports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["export_id", "path", "sha256", "validation_status"],
+        "properties": {
+          "export_id": {"type": "string"},
+          "path": {"type": "string"},
+          "sha256": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"},
+          "validation_status": {"enum": ["ready", "warning", "blocked"]}
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

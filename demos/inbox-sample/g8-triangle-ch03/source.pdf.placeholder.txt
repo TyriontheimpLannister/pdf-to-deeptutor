@@ -1,0 +1,13 @@
+source.pdf placeholder
+=======================
+
+The real MinerU flow always has the original PDF here, but for this
+synthetic fixture we ship a placeholder file so that:
+
+  - Stage 1 inbox validation still finds `source.pdf` and accepts the
+    fixture without warning about a missing source;
+  - the loader's checksum check is bypassed in tests by the placeholder
+    sentinel "0000...0001" recorded in meta.json > source.sha256.
+
+When you swap in a real MinerU export, replace this file with the actual
+PDF and update meta.json > source.sha256 accordingly.

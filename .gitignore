@@ -1,0 +1,64 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Project-specific: user-private data (NEVER commit real materials)
+inbox/
+outlines/elementary-math-*.yaml
+outlines/*-private.yaml
+outlines/my-*.yaml
+projects/
+!projects/demo-*/
+demos/user-*/
+demos/private/
+
+# Allow only the synthetic fixtures under demos/
+!demos/inbox-sample/
+!demos/projects/demo-*/
+
+# Local caches
+.cache/
+.mypy_cache/
+.ruff_cache/

@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.example/schemas/export-plan.schema.json",
+  "title": "Export Plan",
+  "description": "Stage 4c output. One entry per planned export document.",
+  "type": "object",
+  "required": ["plan_id", "mode", "items", "output_filename", "outline_used"],
+  "properties": {
+    "plan_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier; recorded in the project manifest."
+    },
+    "topic_id": {
+      "type": ["string", "null"],
+      "description": "Outline topic this plan covers, or `_misc` for the fallback plan. Null when no outline was used."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Export PDF title."
+    },
+    "mode": {
+      "enum": ["A", "B", "C"],
+      "description": "Reorganization mode for this plan. See HANDOFF.md."
+    },
+    "items": {
+      "type": "array",
+      "description": "Included content items in planned order.",
+      "items": {
+        "type": "object",
+        "required": ["item_id"],
+        "properties": {
+          "item_id": {"type": "string"},
+          "item_type": {
+            "enum": ["definition", "theorem", "worked_example", "exercise",
+                     "solution", "method", "chapter_summary", "other"]
+          },
+          "position": {"type": "integer", "minimum": 0}
+        },
+        "additionalProperties": true
+      }
+    },
+    "figure_ids": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "output_filename": {
+      "type": "string",
+      "pattern": "\\.pdf$",
+      "description": "Derived per the naming convention in EXPORT_SPEC.md."
+    },
+    "outline_used": {
+      "type": ["object", "null"],
+      "description": "Outline provenance. Null when no outline was applied.",
+      "required": ["outline_id"],
+      "properties": {
+        "outline_id": {"type": "string"},
+        "version": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"}
+      },
+      "additionalProperties": true
+    },
+    "is_misc_fallback": {
+      "type": "boolean",
+      "description": "True when this plan collects items that matched no outline topic."
+    },
+    "unclassified_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "When is_misc_fallback is true, the number of items routed here."
+    }
+  },
+  "additionalProperties": true
+}

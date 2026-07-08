@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.example/schemas/outline.schema.json",
+  "title": "Outline",
+  "description": "A user-supplied topic taxonomy that drives Stage 4 outline matching and export planning.",
+  "type": "object",
+  "required": ["outline_id", "name", "version", "applies_to", "topics"],
+  "properties": {
+    "outline_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable identifier. Used in cross-references and recorded in project manifests."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable name."
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Semver-style version string. Changing it changes the outline's recorded hash and forces reclassification."
+    },
+    "applies_to": {
+      "type": "object",
+      "required": ["subject"],
+      "properties": {
+        "subject": {"type": "string", "minLength": 1},
+        "stage": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "topics": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/topic"}
+    },
+    "vocabulary": {
+      "type": "object",
+      "description": "Map of topic id to its matching vocabulary. Topics without an entry get an empty vocabulary and therefore cannot match (intentional).",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["keywords"],
+        "properties": {
+          "keywords": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Literal substrings; case-insensitive match."
+          },
+          "patterns": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Regex patterns applied to item text."
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Optional tiebreaker when items match multiple topics."
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "strategy": {
+      "type": "object",
+      "description": "Per-topic reorganization mode overrides.",
+      "properties": {
+        "default": {
+          "enum": ["A", "B", "C"],
+          "description": "Fallback mode for topics without an explicit override. Default is B."
+        },
+        "overrides": {
+          "type": "object",
+          "additionalProperties": {
+            "enum": ["A", "B", "C"]
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "topic": {
+      "type": "object",
+      "required": ["id", "label"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]*$",
+          "description": "Stable slug. Used in export filenames and cross-references."
+        },
+        "label": {"type": "string", "minLength": 1},
+        "description": {"type": "string"},
+        "priority": {"type": "integer", "minimum": 0},
+        "children": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/topic"}
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}
