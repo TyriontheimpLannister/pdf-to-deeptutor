@@ -1,0 +1,66 @@
+# Sample outline — domain-neutral taxonomy for testing Stage 4b.
+#
+# This is intentionally small (8 leaf topics) and subject-agnostic. It
+# exercises the matcher's core behaviours: keyword matching, priority
+# tie-breaking, the _misc fallback for unmatched items, and the
+# "empty vocabulary => never matches" rule for leaves without vocab.
+outline_id: sample-outline
+name: Sample Outline
+version: 1.0.0
+applies_to:
+  subject: general
+  stage: any
+topics:
+  - id: intro
+    label: 导论
+    description: Chapter introduction / overview (no vocabulary => never matches).
+  - id: concepts
+    label: 基础概念
+    description: Interior node; vocabulary here is ignored by the matcher.
+    children:
+      - id: definitions
+        label: 定义
+      - id: theorems
+        label: 定理与性质
+  - id: methods
+    label: 方法
+  - id: practice
+    label: 练习
+    children:
+      - id: examples
+        label: 例题
+      - id: exercises
+        label: 习题
+  - id: review
+    label: 复习
+    children:
+      - id: summary
+        label: 小结
+      - id: knowledge-points
+        label: 考点
+strategy:
+  default: B
+  overrides: {}
+vocabulary:
+  definitions:
+    keywords: ["定义"]
+    priority: 1
+  theorems:
+    keywords: ["定理", "性质"]
+    priority: 2
+  examples:
+    keywords: ["例题", "例"]
+    priority: 1
+  exercises:
+    keywords: ["习题", "练习"]
+    priority: 1
+  methods:
+    keywords: ["方法"]
+    priority: 3
+  summary:
+    keywords: ["小结", "总结"]
+    priority: 1
+  knowledge-points:
+    keywords: ["考点", "知识点"]
+    priority: 1
+  # intro (leaf) and concepts (interior) intentionally have no vocabulary.
