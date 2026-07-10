@@ -6,7 +6,7 @@ Every figure-relationship claim emitted by the optional analyzer (Stage
 5) carries an explicit `evidence` field. Allowed values:
 
 - `problem_text` — the surrounding text states the relationship
-  explicitly. Example: "AD is perpendicular to BC" inside the
+  explicitly. Example: "element A is linked to element B" inside the
   exercise body.
 - `diagram_mark` — the figure contains an explicit visual mark
   (tick, double-arc, right-angle square, dashed line convention).
@@ -23,8 +23,8 @@ it.
 
 The same field name and value list apply across subject areas:
 
-- For STEM: parallel lines, equal lengths, congruent angles, midpoint,
-  collinearity, etc.
+- For diagrams with structural marks: connections, groupings,
+  alignment or equality marks, ordering, adjacency, etc.
 - For maps and figures: compass orientation, scale bar, labeled
   landmarks, dashed versus solid borders.
 - For reading-comprehension illustrations: character presence and

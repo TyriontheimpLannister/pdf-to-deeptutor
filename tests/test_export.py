@@ -1,9 +1,10 @@
 """Tests for Stage 4c export planner and Stage 7 PDF renderer.
 
 Domain-neutral port of the upstream ``test_export.py``. It builds the
-workspace end-to-end from the in-repo ``demos/inbox-sample/g8-triangle-ch03``
-MinerU fixture and the domain-neutral ``outlines/sample-outline-v1.yaml``
-outline, then asserts the planner/renderer's generic contracts (topic
+workspace end-to-end from the in-repo, domain-neutral
+``demos/inbox-sample/sample-chapter-01`` MinerU fixture and the
+``outlines/sample-outline-v1.yaml`` outline, then asserts the
+planner/renderer's generic contracts (topic
 grouping, persistence, outline provenance, Mode C bridges, CJK-safe
 rendering). Subject-specific topic ids are never hard-coded.
 """
@@ -38,7 +39,7 @@ _FPDF_FONT_DIR = Path(getattr(fpdf, "FPDF_FONT_DIR", "") or Path(fpdf.__file__).
 _HAS_DEJAVU = (_FPDF_FONT_DIR / "DejaVuSans.ttf").is_file()
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-FIXTURE_INBOX = PROJECT_ROOT / "demos" / "inbox-sample" / "g8-triangle-ch03"
+FIXTURE_INBOX = PROJECT_ROOT / "demos" / "inbox-sample" / "sample-chapter-01"
 OUTLINE = PROJECT_ROOT / "outlines" / "sample-outline-v1.yaml"
 
 

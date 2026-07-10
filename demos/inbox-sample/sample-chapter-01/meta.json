@@ -1,14 +1,14 @@
 {
-  "task_id": "g8-triangle-ch03-sample",
+  "task_id": "sample-chapter-01",
   "source": {
-    "original_filename": "八年级数学-全等三角形-习题集.pdf",
+    "original_filename": "sample-document.pdf",
     "sha256": "0000000000000000000000000000000000000000000000000000000000000001",
     "page_count": 4
   },
   "minerU": {
     "version": "MinerU-1.x-fixture",
     "exported_at": "2026-07-08T14:32:00+08:00",
-    "task_url": "https://mineru.example/tasks/g8-triangle-ch03-sample"
+    "task_url": "https://mineru.example/tasks/sample-chapter-01"
   },
   "products": {
     "markdown": "full.md",
@@ -17,5 +17,5 @@
     "latex": null,
     "docx": null
   },
-  "notes": "Synthetic fixture for pipeline Stage 1-3 testing. Image URLs are intentionally fake temporary URLs to exercise Stage 2 asset localization."
+  "notes": "Synthetic, domain-neutral fixture for pipeline Stage 1-3 testing. Image URLs are intentionally fake temporary URLs to exercise Stage 2 asset localization."
 }

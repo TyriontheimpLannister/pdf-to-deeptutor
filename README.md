@@ -24,9 +24,9 @@ input folder (MinerU output)        output directory
 ===========================         ================
 inbox/<your-book>/                  projects/<your-book>/
   meta.json                            exports/deeptutor/
-  full.md                                math-G8-congruent-triangles.pdf
-  layout.json                            math-G8-parallel-lines.pdf
-  images/                                math-G8-misc-2026-07-08.pdf
+  full.md                                topic-basic-concepts.pdf
+  layout.json                            topic-main-properties.pdf
+  images/                                _misc-2026-07-08.pdf
         source.pdf                     assets/...
         assets_registry.json
         normalized/full.md
@@ -78,9 +78,9 @@ end-to-end path without needing MinerU or a real scan.
 ```bash
 # 1. Create the inbox layout (the user normally does this once per book)
 mkdir -p inbox/my-book/images
-cp demos/inbox-sample/g8-triangle-ch03/full.md inbox/my-book/
-cp demos/inbox-sample/g8-triangle-ch03/layout.json inbox/my-book/
-cp -r demos/inbox-sample/g8-triangle-ch03/images inbox/my-book/
+cp demos/inbox-sample/sample-chapter-01/full.md inbox/my-book/
+cp demos/inbox-sample/sample-chapter-01/layout.json inbox/my-book/
+cp -r demos/inbox-sample/sample-chapter-01/images inbox/my-book/
 
 # 2. Generate meta.json (computes source SHA-256, discovers products)
 pdf2dt-init-meta --inbox-dir inbox/my-book --original-filename scan.pdf
@@ -203,7 +203,7 @@ pdf-to-deeptutor/
     pipeline/             # orchestrator
   tests/                  # pytest suite
   scripts/                # CLI entry points (also installed as console scripts)
-  schemas/                # JSON schemas for outline, export-plan, geometry
+  schemas/                # JSON schemas for outline, export-plan, items
   docs/                   # product / architecture / decision docs
   demos/                  # synthetic fixtures
   outlines/               # user-supplied topic taxonomies (templated)

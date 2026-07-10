@@ -40,7 +40,7 @@ The dev extras install `pytest`, `pytest-asyncio`, and `ruff`.
 - `docs/` — product, architecture, decision log. Update the decision
   log when you make a stable change.
 - `schemas/` — JSON schemas for cross-package contracts (outline,
-  export-plan, geometry). Update these when the contract changes.
+  export-plan, items). Update these when the contract changes.
 - `demos/` — synthetic fixtures. Anything under `demos/` is safe to
   commit.
 - `inbox/` and `projects/` are gitignored. Do not commit real

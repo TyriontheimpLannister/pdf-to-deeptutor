@@ -12,16 +12,16 @@ dropped into the inbox.
 
 ```bash
 # 1. Drop MinerU output under inbox/<book-id>/
-mkdir -p inbox/学之舟-总复习
-cp /path/to/MinerU-export/full.md        inbox/学之舟-总复习/
-cp /path/to/MinerU-export/layout.json    inbox/学之舟-总复习/
-cp -r /path/to/MinerU-export/images      inbox/学之舟-总复习/
-cp /path/to/学之舟小学生知识通-数学.pdf inbox/学之舟-总复习/source.pdf
+mkdir -p inbox/my-book
+cp /path/to/MinerU-export/full.md        inbox/my-book/
+cp /path/to/MinerU-export/layout.json    inbox/my-book/
+cp -r /path/to/MinerU-export/images      inbox/my-book/
+cp /path/to/sample-document.pdf          inbox/my-book/source.pdf
 
 # 2. Generate meta.json
 python scripts/init_inbox_meta.py \
-    --inbox-dir inbox/学之舟-总复习 \
-    --original-filename "学之舟小学生知识通-数学.pdf" \
+    --inbox-dir inbox/my-book \
+    --original-filename "sample-document.pdf" \
     --mineru-version "MinerU-VLM-2.x"
 ```
 
@@ -52,10 +52,10 @@ turning a MinerU task into a project workspace.
 
 ```bash
 python scripts/run_pipeline.py \
-    --inbox inbox/学之舟-总复习 \
-    --project-root projects/学之舟-总复习 \
-    --project-id 学之舟-总复习 \
-    --title "学之舟小学生知识通-数学" \
+    --inbox inbox/my-book \
+    --project-root projects/my-book \
+    --project-id my-book \
+    --title "My scanned book" \
     --downloader http
 ```
 

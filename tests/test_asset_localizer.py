@@ -15,7 +15,7 @@ from pdf2dt.assets import (
 from pdf2dt.inbox import load_inbox_task
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "demos" / "inbox-sample"
-TASK_DIR = FIXTURE_ROOT / "g8-triangle-ch03"
+TASK_DIR = FIXTURE_ROOT / "sample-chapter-01"
 MIRROR_DIR = TASK_DIR / "images"
 
 
@@ -109,7 +109,7 @@ class TestRewrite:
         localizer = AssetLocalizer(assets_dir, mirror)
         registry = localizer.localize(loaded_task)
         md_with_unknown = loaded_task.markdown_text.replace(
-            "![三角形 ABC](https://mineru.example/tmp/img_p001_001.png)",
+            "![示意图 A](https://mineru.example/tmp/img_p001_001.png)",
             "![示例](https://other.example/foo.png)",
         )
         rewritten = localizer.rewrite_markdown(md_with_unknown, registry)

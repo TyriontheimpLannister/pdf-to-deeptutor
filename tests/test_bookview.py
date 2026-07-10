@@ -1,12 +1,12 @@
 """Tests for :mod:`pdf2dt.bookview` (Stage 3 — BookView builder).
 
 Domain-neutral port of the upstream ``test_bookview.py``. The upstream
-suite runs against a pre-built ``projects/demo-g8-triangle`` workspace
-plus the private ``elementary-math-v1.yaml`` outline; here we build the
-workspace end-to-end from the in-repo ``demos/inbox-sample/g8-triangle-ch03``
-MinerU fixture and the domain-neutral ``outlines/sample-outline-v1.yaml``,
-and assert on the builder's generic contracts (tree shape, fingerprints,
-manifest, topic inheritance) rather than subject-specific counts.
+suite runs against a pre-built subject-specific workspace plus a private
+outline; here we build the workspace end-to-end from the in-repo, domain-neutral
+``demos/inbox-sample/sample-chapter-01`` MinerU fixture and the
+``outlines/sample-outline-v1.yaml`` outline, and assert on the builder's
+generic contracts (tree shape, fingerprints, manifest, topic
+inheritance) rather than subject-specific counts.
 """
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ from pdf2dt.outlining.matcher import match_project
 from pdf2dt.project import ProjectWorkspace, create_workspace, load_workspace
 
 ROOT = Path(__file__).resolve().parents[1]
-FIXTURE_INBOX = ROOT / "demos" / "inbox-sample" / "g8-triangle-ch03"
+FIXTURE_INBOX = ROOT / "demos" / "inbox-sample" / "sample-chapter-01"
 FIXTURE_MD = FIXTURE_INBOX / "full.md"
 OUTLINE = ROOT / "outlines" / "sample-outline-v1.yaml"
 

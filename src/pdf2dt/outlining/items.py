@@ -8,8 +8,8 @@ item as plain text so that the matcher can use them as additional
 context.
 
 It does **not** aim to reproduce the full Markdown AST — only the
-shape the outline matcher needs. Later stages (geometry, review) may
-replace this with a richer representation.
+shape the outline matcher needs. Later stages (figure analysis,
+review) may replace this with a richer representation.
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ _IMAGE_RE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
 # Inline image alt plain-text fallback for the searchable buffer.
 _PLAIN_IMG_ALT_RE = re.compile(r"!\[[^\]]*\]\([^)]+\)")
 
-# Section dividers used in Chinese math textbooks (一、二、… / 第X节).
+# Section dividers used in Chinese textbooks/documents (一、二、… / 第X节).
 _SECTION_PREFIX_RE = re.compile(r"^第[一二三四五六七八九十百千0-9]+节\b")
 
 

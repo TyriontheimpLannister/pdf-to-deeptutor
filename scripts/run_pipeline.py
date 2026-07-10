@@ -3,12 +3,12 @@
 Usage:
 
     python scripts/run_pipeline.py \
-        --inbox demos/inbox-sample/g8-triangle-ch03 \
-        --project-root projects/demo-g8-triangle \
-        --project-id demo-g8-triangle \
+        --inbox demos/inbox-sample/sample-chapter-01 \
+        --project-root projects/demo-sample-chapter \
+        --project-id demo-sample-chapter \
         --title "Demo: Chapter Export" \
         --downloader local \
-        --mirror demos/inbox-sample/g8-triangle-ch03/images \
+        --mirror demos/inbox-sample/sample-chapter-01/images \
         --outline outlines/sample-outline-v1.yaml \
         --book-view \
         --mode B \
@@ -67,7 +67,7 @@ def main() -> int:
     p.add_argument("--project-id", required=True, help="Stable project identifier.")
     p.add_argument("--title", required=True, help="Human-readable project title.")
     p.add_argument("--subject", default="general")
-    p.add_argument("--stage", default="middle-G8")
+    p.add_argument("--stage", default="sample")
     p.add_argument(
         "--downloader",
         choices=["local", "http"],

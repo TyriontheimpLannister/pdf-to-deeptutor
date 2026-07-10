@@ -11,7 +11,7 @@ from pdf2dt.assets import LocalMirrorDownloader
 from pdf2dt.pipeline import PipelineRunner
 from pdf2dt.project import StageStatus
 
-FIXTURE_TASK = Path(__file__).resolve().parents[1] / "demos" / "inbox-sample" / "g8-triangle-ch03"
+FIXTURE_TASK = Path(__file__).resolve().parents[1] / "demos" / "inbox-sample" / "sample-chapter-01"
 
 
 @pytest.fixture
@@ -28,8 +28,8 @@ def test_pipeline_creates_full_workspace(tmp_path: Path, mirror) -> None:
         inbox_task_dir=FIXTURE_TASK,
         project_id="demo",
         title="Demo",
-        subject="math",
-        stage="middle-G8",
+        subject="general",
+        stage="sample",
     )
 
     # Standard layout exists
@@ -51,7 +51,7 @@ def test_pipeline_creates_full_workspace(tmp_path: Path, mirror) -> None:
     # Manifest persisted with stage records
     manifest = result.workspace.load_manifest()
     assert manifest["project_id"] == "demo"
-    assert manifest["subject"]["subject"] == "math"
+    assert manifest["subject"]["subject"] == "general"
     assert manifest["stages"]["stage0_workspace"]["status"] == StageStatus.COMPLETED.value
     assert manifest["stages"]["stage1_ingest"]["status"] == StageStatus.COMPLETED.value
     assert manifest["stages"]["stage2_localize"]["status"] == StageStatus.COMPLETED.value

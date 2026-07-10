@@ -76,9 +76,9 @@ is `_misc`.
 Examples:
 
 ```text
-middle-G8-math-congruent-triangles-SAS-worked-examples-01.pdf
-elementary-math-num-sense-frac-exercises-01.pdf
-elementary-math-_misc-2026-07-08T1430-01.pdf
+sample-chapter-basic-concepts-worked-examples-01.pdf
+sample-chapter-main-properties-exercises-01.pdf
+sample-chapter-_misc-2026-07-08T1430-01.pdf
 ```
 
 Chinese filenames are acceptable when the operating environment and
@@ -86,12 +86,13 @@ DeepTutor deployment handle them reliably.
 
 ## Figure descriptions
 
-Descriptions should prioritize mathematically relevant facts:
+Descriptions should prioritize facts that are relevant to interpreting
+the item:
 
-- named points and their incidence;
-- explicit equal-length or equal-angle marks;
-- explicit parallel or perpendicular marks;
-- placement needed to interpret the question;
+- named entities and their relationships as shown;
+- explicit labels, marks, or annotations on the figure;
+- structural cues (grouping, ordering, connections) the reader needs;
+- placement or context needed to interpret the item;
 - explicit warnings against unsupported visual assumptions.
 
 Descriptions should not attempt to replace the original figure.

@@ -19,7 +19,7 @@ from pdf2dt.bookview.mineru_adapter import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REAL_MINERU_LAYOUT = (
-    PROJECT_ROOT / "projects" / "学之舟-总复习" / "normalized" / "layout.localized.json"
+    PROJECT_ROOT / "projects" / "private-real-project" / "normalized" / "layout.localized.json"
 )
 
 
@@ -60,12 +60,12 @@ def test_adapt_mineru_layout_handles_synthetic_mineru() -> None:
                                 "lines": [
                                     {
                                         "spans": [
-                                            {"type": "text", "content": "Integers include positive, zero, negative."}
+                                            {"type": "text", "content": "This paragraph contains sample body text."}
                                         ]
                                     },
                                     {
                                         "spans": [
-                                            {"type": "text", "content": "Naturals start at 0."}
+                                            {"type": "text", "content": "It spans multiple lines for testing."}
                                         ]
                                     },
                                 ]
@@ -100,18 +100,18 @@ def test_adapt_mineru_layout_handles_synthetic_mineru() -> None:
     assert page["blocks"][0]["type"] == "heading"
     assert page["blocks"][0]["text"] == "Chapter One"
     assert page["blocks"][1]["type"] == "paragraph"
-    assert "Integers include" in page["blocks"][1]["text"]
-    assert "Naturals start at 0." in page["blocks"][1]["text"]
+    assert "sample body text" in page["blocks"][1]["text"]
+    assert "multiple lines for testing." in page["blocks"][1]["text"]
     assert page["blocks"][2]["type"] == "figure"
     assert page["blocks"][2]["image_url"] == "abc123hash"
 
 
 @pytest.mark.skipif(
     not REAL_MINERU_LAYOUT.is_file(),
-    reason="private 学之舟-总复习 MinerU layout is not shipped in this fork",
+    reason="private real-project MinerU layout is not shipped in this fork",
 )
 def test_adapt_mineru_layout_real_project() -> None:
-    """The real 学之舟-总复习 layout has 11 pages with image-dominant content."""
+    """The real private-project layout has 11 pages with image-dominant content."""
     raw = json.loads(REAL_MINERU_LAYOUT.read_text(encoding="utf-8"))
     pages = adapt_mineru_layout(raw)
     assert len(pages) == 11

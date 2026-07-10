@@ -144,16 +144,16 @@ Typical fields:
 
 ## structured figure
 
-Represents one mathematically relevant figure and its structured
-interpretation. Reserved for Stage 5.
+Represents one relevant figure and its structured interpretation.
+Reserved for Stage 5.
 
 Typical fields:
 
 - figure ID;
 - asset ID;
 - associated item ID;
-- points;
-- segments;
+- named entities;
+- referenced regions;
 - relations;
 - explicit marks;
 - uncertain visual observations;
@@ -173,14 +173,12 @@ Required fields:
 
 Examples:
 
-- point on segment;
-- equal lengths;
-- equal angles;
-- parallel lines;
-- perpendicular lines;
-- midpoint;
-- angle bisector;
-- collinearity.
+- entity contained in region;
+- equal or matching marks;
+- alignment between entities;
+- adjacency or connection;
+- grouping or membership;
+- ordering or sequence.
 
 ## ExportPlan
 

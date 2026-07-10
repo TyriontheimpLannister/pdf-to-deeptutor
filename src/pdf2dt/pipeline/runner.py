@@ -45,8 +45,8 @@ class PipelineRunner:
         inbox_task_dir: Path | str,
         project_id: str,
         title: str,
-        subject: str | None = "math",
-        stage: str | None = "middle-G8",
+        subject: str | None = "general",
+        stage: str | None = "sample",
     ) -> PipelineResult:
         inbox_task_dir = Path(inbox_task_dir)
 
@@ -157,8 +157,8 @@ def run_pipeline(
     project_id: str,
     title: str,
     downloader: AssetDownloader,
-    subject: str | None = "math",
-    stage: str | None = "middle-G8",
+    subject: str | None = "general",
+    stage: str | None = "sample",
 ) -> PipelineResult:
     return PipelineRunner(downloader).run(
         project_root=project_root,

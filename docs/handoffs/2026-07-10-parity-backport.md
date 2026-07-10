@@ -36,7 +36,7 @@ Tests added (all domain-neutral):
 - `tests/test_bridges.py`, `tests/test_mineru_adapter.py` — ported
   verbatim/near-verbatim (pure-unit).
 - `tests/test_bookview.py`, `tests/test_export.py` — end-to-end tests reuse the
-  in-repo `demos/inbox-sample/g8-triangle-ch03` inbox + neutral
+  in-repo `demos/inbox-sample/sample-chapter-01` inbox + neutral
   `outlines/sample-outline-v1.yaml` instead of the private math fixtures. They
   assert generic contracts (topic grouping, provenance, Mode C bridge count),
   not math-specific topic ids.
@@ -46,7 +46,7 @@ Tests added (all domain-neutral):
 - `python -m pytest tests/` → **77 passed / 2 skipped** (managed venv
   `…/python/envs/default` with `pytest fpdf2 pypdf Pillow`).
   - Skip #1 `test_adapt_mineru_layout_real_project` — needs the private
-    `学之舟-总复习` MinerU export, not shipped here.
+    real-project MinerU export, not shipped here.
   - Skip #2 `test_renderer_without_cjk_font` — this `fpdf2` build bundles no
     `DejaVuSans.ttf`, so the non-CJK fallback path can't run here (runs fine
     wherever DejaVu is available, e.g. upstream).

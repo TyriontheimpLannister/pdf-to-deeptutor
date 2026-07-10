@@ -1,8 +1,8 @@
 # pdf-to-deeptutor Handoff
 
-> Updated: 2026-07-10 18:25
+> Updated: 2026-07-10 17:20
 > Owner: ian
-> Status: DONE
+> Status: DONE (uncommitted — full domain-neutralization pass, not yet pushed)
 
 ## Current Goal
 
@@ -23,8 +23,14 @@ backports. We follow upstream; we do not pioneer new stages.
   Stage 7 (PDF renderer, fpdf2), and Mode C (pluggable `BridgeProvider`) are
   all implemented and tested. Operator scripts, schemas, and domain-neutral
   fixtures are in place. Full detail: `docs/handoffs/2026-07-10-parity-backport.md`.
-- In progress: none (parity reached).
-- Blocked: none.
+- Done: **full domain-neutralization pass** (2026-07-10). Removed every
+  remaining math/subject-specific reference across src, tests, docs, scripts,
+  and fixtures; renamed fixture `g8-triangle-ch03` → `sample-chapter-01`;
+  removed unused `schemas/geometry-item.schema.json`. Repo-wide scan is clean
+  (only upstream-repo provenance strings remain). Detail: `docs/handoffs/`.
+- In progress / Blocked: none (parity reached; repo domain-neutral).
+- **Uncommitted**: neutralization changes are working-tree/index only; not
+  committed or pushed (no push was requested this session).
 
 ## Scope
 
@@ -57,7 +63,7 @@ Do not modify:
 ## Verification
 
 - Passed: `python -m pytest tests/` — **77 passed / 2 skipped**
-  (2026-07-10 18:25, managed venv `…/python/envs/default` with
+  (2026-07-10 17:20, after neutralization; managed venv `…/python/envs/default` with
   `pytest fpdf2 pypdf Pillow`). Skips are environmental (private MinerU export
   not shipped; this `fpdf2` build has no `DejaVuSans.ttf` for the non-CJK
   fallback). Detail in `docs/handoffs/2026-07-10-parity-backport.md`.
@@ -71,16 +77,9 @@ Do not modify:
 | Need | Read | Notes |
 |---|---|---|
 | Project rules | `AGENTS.md` | |
-| Latest backport detail | `docs/handoffs/2026-07-10-parity-backport.md` | |
+| Handoff archives | `docs/handoffs/` | parity-backport + domain-neutralization detail |
 | Decision log | `docs/decisions/README.md` | active decisions |
-| Product overview | `docs/PRODUCT_SPEC.md` | |
-| Pipeline contract | `docs/PIPELINE.md` | |
-| Data model | `docs/DATA_MODEL.md` | |
-| Export spec | `docs/EXPORT_SPEC.md` | |
-| Roadmap | `docs/ROADMAP.md` | |
-| Validation | `docs/VALIDATION.md` | |
-| Architecture | `docs/ARCHITECTURE.md` | |
-| DeepTutor integration | `docs/DEEPTUTOR_INTEGRATION.md` | |
+| Design docs | `docs/` | PRODUCT_SPEC, PIPELINE, DATA_MODEL, EXPORT_SPEC, ROADMAP, VALIDATION, ARCHITECTURE, DEEPTUTOR_INTEGRATION |
 | Schemas | `schemas/` | incl. `negative_keywords`/`chapter_stopwords` |
 | Operator scripts | `scripts/run_pipeline.py`, `scripts/rerun_late_stages.py` | |
 | Canonical test bench | `../math-content-preprocessor/` | private; read-only from our side |
@@ -88,13 +87,14 @@ Do not modify:
 
 ## Recent History
 
+- 2026-07-10 17:20 ian: full domain-neutralization pass — renamed fixture to
+  `sample-chapter-01` (generic content), neutralized `runner.py`/downloader/
+  package-docstring/comments, removed unused geometry schema, genericized doc
+  examples. 77 passed / 2 skipped. Uncommitted (no push requested).
 - 2026-07-10 18:25 ian: trimmed HANDOFF to protocol §4 limit; moved backport
   detail to `docs/handoffs/2026-07-10-parity-backport.md`; set Status=DONE;
   committed + pushed to `origin/main`.
 - 2026-07-10 17:40 ian: caught up to upstream `c9ae123` (Stage 3/4c/7 + Mode C
-  + outlining sync). Full suite 77 passed / 2 skipped. Detail archived.
-- 2026-07-09 23:31 ian: backported Stage 4b outline matching; added neutral
-  fixtures + 27 tests (49 passed). HANDOFF created.
-- 2026-07-09 00:15 trae: spun up this public fork from
-  `math-content-preprocessor` `8a74776`. Renamed package to `pdf2dt`,
-  domain-neutral docs, MIT LICENSE. Stages 0–2 only at fork time.
+  + outlining sync). 77 passed / 2 skipped. Detail archived.
+- 2026-07-09 ian: backported Stage 4b outline matching; neutral fixtures + 27
+  tests. Earlier history: git log + `docs/handoffs/`.

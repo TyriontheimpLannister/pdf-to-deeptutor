@@ -32,7 +32,7 @@ class HttpxDownloader(AssetDownloader):
         max_retries: int = 3,
         backoff_seconds: float = 0.5,
         max_bytes: int = _MAX_BYTES_DEFAULT,
-        user_agent: str = "math-content-preprocessor/0.1",
+        user_agent: str = "pdf-to-deeptutor/0.1",
     ) -> None:
         import httpx  # local import keeps the dependency optional for tests
 

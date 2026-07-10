@@ -11,7 +11,7 @@ Usage:
 
     python scripts/init_inbox_meta.py \\
         --inbox-dir inbox/<book-id> \\
-        --original-filename "学之舟小学生知识通-数学.pdf" \\
+        --original-filename "sample-document.pdf" \\
         [--task-id <book-id>] \\
         [--mineru-version "MinerU-VLM-2.x"]
 """
@@ -127,7 +127,7 @@ def _build_meta(args, task_dir: Path) -> dict:
 def main() -> int:
     p = argparse.ArgumentParser(description="Generate meta.json for an inbox task.")
     p.add_argument("--inbox-dir", required=True, help="Path to inbox/<book-id>/")
-    p.add_argument("--original-filename", required=True, help="e.g. 教辅书.pdf")
+    p.add_argument("--original-filename", required=True, help="e.g. sample-document.pdf")
     p.add_argument("--task-id", default=None, help="Override task_id (default: slug of filename)")
     p.add_argument(
         "--mineru-version",

@@ -1,0 +1,63 @@
+{
+  "$note": "Synthetic fixture. Schema mirrors a simplified subset of MinerU's layout.json output (page-level blocks with bbox, type, and content). Content is domain-neutral placeholder text.",
+  "task_id": "sample-chapter-01",
+  "pages": [
+    {
+      "page_index": 0,
+      "page_number": 1,
+      "blocks": [
+        {"block_id": "p001-b001", "type": "heading", "level": 1, "bbox": [80, 60, 600, 110], "text": "第一章 示例主题"},
+        {"block_id": "p001-b002", "type": "heading", "level": 2, "bbox": [80, 130, 400, 170], "text": "1.1 基本概念"},
+        {"block_id": "p001-b003", "type": "paragraph", "bbox": [80, 180, 720, 240], "text": "本节介绍示例主题的基本概念。以下段落为占位说明文本,仅用于演示归一化与分块流程,不绑定任何具体学科。"},
+        {"block_id": "p001-b004", "type": "definition", "bbox": [80, 260, 720, 380], "text": "概念 A 指满足性质 P 的对象所组成的集合。若对象 x 满足条件 C,则称 x 属于概念 A。", "labels": ["定义 1.1"]},
+        {"block_id": "p001-b005", "type": "heading", "level": 2, "bbox": [80, 410, 400, 450], "text": "1.2 主要性质"},
+        {"block_id": "p001-b006", "type": "heading", "level": 3, "bbox": [80, 470, 320, 500], "text": "1.2.1 第一条性质"},
+        {"block_id": "p001-b007", "type": "theorem", "bbox": [80, 510, 720, 600], "text": "若对象同时满足条件 C1 与 C2,则其具备性质 Q。", "labels": ["定理 1.1"]},
+        {"block_id": "p001-b008", "type": "figure", "bbox": [120, 620, 480, 920], "image_url": "https://mineru.example/tmp/img_p001_001.png", "caption": "示意图 A"}
+      ]
+    },
+    {
+      "page_index": 1,
+      "page_number": 2,
+      "blocks": [
+        {"block_id": "p002-b001", "type": "heading", "level": 3, "bbox": [80, 60, 320, 100], "text": "1.2.2 第二条性质"},
+        {"block_id": "p002-b002", "type": "theorem", "bbox": [80, 110, 720, 200], "text": "在条件 C3 下,概念 A 与概念 B 相互等价。", "labels": ["定理 1.2"]},
+        {"block_id": "p002-b003", "type": "heading", "level": 3, "bbox": [80, 220, 320, 260], "text": "1.2.3 第三条性质"},
+        {"block_id": "p002-b004", "type": "theorem", "bbox": [80, 270, 720, 360], "text": "概念 A 对运算封闭:若 x、y 均属于 A,则其结果仍属于 A。", "labels": ["性质 1.3"]},
+        {"block_id": "p002-b005", "type": "figure", "bbox": [80, 380, 720, 700], "image_url": "https://mineru.example/tmp/img_p003_001.png", "caption": "示意图 B"}
+      ]
+    },
+    {
+      "page_index": 2,
+      "page_number": 3,
+      "blocks": [
+        {"block_id": "p003-b001", "type": "heading", "level": 2, "bbox": [80, 60, 400, 100], "text": "1.3 例题"},
+        {"block_id": "p003-b002", "type": "worked_example", "bbox": [80, 110, 720, 360], "text": "已知对象 x 同时满足条件 C1 与 C2,判断 x 是否具备性质 Q。", "labels": ["例题 1.1"]},
+        {"block_id": "p003-b003", "type": "figure", "bbox": [120, 380, 480, 700], "image_url": "https://mineru.example/tmp/img_p004_001.png", "caption": "例题 1.1 配图"},
+        {"block_id": "p003-b004", "type": "solution", "bbox": [80, 720, 720, 880], "text": "由条件 C1 与 C2,依据定理 1.1 即可得出 x 具备性质 Q。"},
+        {"block_id": "p003-b005", "type": "worked_example", "bbox": [80, 900, 720, 1100], "text": "设对象 y 满足条件 C3,说明 y 与概念 B 之间的关系。", "labels": ["例题 1.2"]},
+        {"block_id": "p003-b006", "type": "figure", "bbox": [120, 1120, 600, 1420], "image_url": "https://mineru.example/tmp/img_p002_001.png", "caption": "例题 1.2 配图"},
+        {"block_id": "p003-b007", "type": "solution", "bbox": [80, 1440, 720, 1600], "text": "由条件 C3,依据定理 1.2,y 同时属于概念 A 与概念 B。"}
+      ]
+    },
+    {
+      "page_index": 3,
+      "page_number": 4,
+      "blocks": [
+        {"block_id": "p004-b001", "type": "heading", "level": 2, "bbox": [80, 60, 400, 100], "text": "1.4 习题"},
+        {"block_id": "p004-b002", "type": "exercise", "bbox": [80, 110, 720, 240], "text": "列举三个满足条件 C 的对象,并简要说明理由。", "labels": ["习题 1.1"]},
+        {"block_id": "p004-b003", "type": "exercise", "bbox": [80, 260, 720, 420], "text": "判断:若某对象具备性质 Q,是否一定满足条件 C1?请说明。", "labels": ["习题 1.2"]},
+        {"block_id": "p004-b004", "type": "exercise", "bbox": [80, 440, 720, 600], "text": "举例说明概念 A 与概念 B 在条件 C3 下的等价关系。", "labels": ["习题 1.3"]},
+        {"block_id": "p004-b005", "type": "heading", "level": 2, "bbox": [80, 640, 320, 680], "text": "1.5 小结"},
+        {"block_id": "p004-b006", "type": "chapter_summary", "bbox": [80, 690, 720, 820], "text": "本章介绍了概念 A 的定义、三条基本性质,以及配套的例题与习题。"},
+        {"block_id": "p004-b007", "type": "paragraph", "bbox": [80, 850, 720, 950], "text": "附注:本段为与本章主题无关的占位杂项内容,用于演示大纲未匹配时的兜底路径。"}
+      ]
+    }
+  ],
+  "image_urls": [
+    "https://mineru.example/tmp/img_p001_001.png",
+    "https://mineru.example/tmp/img_p002_001.png",
+    "https://mineru.example/tmp/img_p003_001.png",
+    "https://mineru.example/tmp/img_p004_001.png"
+  ]
+}
