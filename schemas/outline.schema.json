@@ -40,7 +40,6 @@
       "description": "Map of topic id to its matching vocabulary. Topics without an entry get an empty vocabulary and therefore cannot match (intentional).",
       "additionalProperties": {
         "type": "object",
-        "required": ["keywords"],
         "properties": {
           "keywords": {
             "type": "array",
@@ -51,6 +50,16 @@
             "type": "array",
             "items": {"type": "string"},
             "description": "Regex patterns applied to item text."
+          },
+          "negative_keywords": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "If any of these substrings appear in the item text, this leaf is vetoed (floored below min_score) regardless of positive hits."
+          },
+          "negative_patterns": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Regex vetoes; same semantics as negative_keywords but for pattern matches."
           },
           "priority": {
             "type": "integer",
@@ -93,6 +102,11 @@
         "label": {"type": "string", "minLength": 1},
         "description": {"type": "string"},
         "priority": {"type": "integer", "minimum": 0},
+        "chapter_stopwords": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "description": "Substrings shared by every item in this chapter. Inherited top-down by descendants. The matcher scrubs them from keyword substring checks; patterns are unchanged."
+        },
         "children": {
           "type": "array",
           "items": {"$ref": "#/$defs/topic"}

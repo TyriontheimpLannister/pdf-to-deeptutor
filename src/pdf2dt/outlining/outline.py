@@ -30,6 +30,23 @@ import yaml
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 
+def _collect_ancestors(node: "Topic", target_id: str, out: list["Topic"]) -> bool:
+    """Walk the tree depth-first; append every node on the path
+    to ``target_id`` (excluding the root ancestor we started from
+    is not the case here — we keep all parents AND the target leaf
+    itself) into ``out``; return True iff ``target_id`` is found
+    below ``node``. Used by ``Outline._ancestors_of``.
+    """
+    out.append(node)
+    if node.id == target_id:
+        return True
+    for child in node.children:
+        if _collect_ancestors(child, target_id, out):
+            return True
+    out.pop()
+    return False
+
+
 class OutlineLoadError(ValueError):
     """Raised when an outline YAML cannot be parsed or fails validation."""
 
@@ -42,6 +59,7 @@ class Topic:
     label: str
     description: str = ""
     children: tuple["Topic", ...] = ()
+    chapter_stopwords: tuple[str, ...] = ()
 
     def leaves(self) -> list["Topic"]:
         """Return every descendant that has no children of its own."""
@@ -55,14 +73,30 @@ class Topic:
 
 @dataclass(frozen=True)
 class VocabularyEntry:
-    """Vocabulary rules for one leaf topic."""
+    """Vocabulary rules for one leaf topic.
+
+    ``keywords`` / ``patterns`` are positive evidence — each hit adds
+    one point to the score. ``negative_keywords`` / ``negative_patterns``
+    are *context filters*: if any of them appears in the item's
+    searchable text, the leaf is suppressed entirely (the score is
+    floored below ``min_score`` so the entry does not enter the
+    candidate set). Negative rules never *add* matches on their own;
+    they only veto a leaf that already had positive evidence.
+    """
 
     keywords: tuple[str, ...] = ()
     patterns: tuple[str, ...] = ()
+    negative_keywords: tuple[str, ...] = ()
+    negative_patterns: tuple[str, ...] = ()
     priority: int = 0
 
     def is_empty(self) -> bool:
-        return not self.keywords and not self.patterns
+        return (
+            not self.keywords
+            and not self.patterns
+            and not self.negative_keywords
+            and not self.negative_patterns
+        )
 
 
 @dataclass
@@ -100,6 +134,34 @@ class Outline:
     def vocabulary_for(self, leaf_id: str) -> VocabularyEntry:
         """Return the vocabulary for a leaf, or an empty entry."""
         return self.vocabulary.get(leaf_id, VocabularyEntry())
+
+    def chapter_stopwords_for(self, leaf_id: str) -> tuple[str, ...]:
+        """Return the union of chapter_stopwords inherited from every
+        ancestor of ``leaf_id`` (the parents themselves, and the leaf
+        if it also lists stopwords). Used by the matcher to suppress
+        weak-positive keywords that would otherwise pollute every leaf
+        in the same chapter.
+        """
+        merged: list[str] = []
+        for parent in self._ancestors_of(leaf_id):
+            for sw in parent.chapter_stopwords:
+                if sw and sw not in merged:
+                    merged.append(sw)
+        return tuple(merged)
+
+    def _ancestors_of(self, leaf_id: str) -> list[Topic]:
+        """Return every ancestor (and the leaf itself if present)
+        along the path from a top-level topic to ``leaf_id``, in
+        top-down order. Empty list if the leaf is unknown.
+        """
+        path: list[Topic] = []
+        for root in self.topics:
+            if _collect_ancestors(root, leaf_id, path):
+                # _collect_ancestors already appended nodes in
+                # top-down order (root first, leaf last); keep it
+                # as-is so callers get a deterministic traversal.
+                return list(path)
+        return []
 
     def strategy_for(self, leaf_id: str) -> str:
         """Return the reorganize mode for a leaf, with default fallback."""
@@ -215,11 +277,18 @@ class OutlineLoader:
         if not isinstance(children_raw, list):
             raise OutlineLoadError(f"{path}: 'children' for {tid!r} must be a list")
         children = tuple(self._parse_topic(c, path) for c in children_raw)
+        stopwords_raw = raw.get("chapter_stopwords") or []
+        if not isinstance(stopwords_raw, list):
+            raise OutlineLoadError(
+                f"{path}: 'chapter_stopwords' for {tid!r} must be a list"
+            )
+        stopwords = tuple(str(s) for s in stopwords_raw if str(s).strip())
         return Topic(
             id=tid,
             label=str(raw["label"]),
             description=str(raw.get("description") or ""),
             children=children,
+            chapter_stopwords=stopwords,
         )
 
     def _parse_vocab(self, raw: Any, leaf_id: str, path: Path) -> VocabularyEntry:
@@ -228,6 +297,9 @@ class OutlineLoader:
                 f"{path}: vocabulary for {leaf_id!r} must be a mapping"
             )
         keywords = tuple(str(k) for k in (raw.get("keywords") or []))
+        negative_keywords = tuple(
+            str(k) for k in (raw.get("negative_keywords") or [])
+        )
         patterns_raw = raw.get("patterns") or []
         if not isinstance(patterns_raw, list):
             raise OutlineLoadError(
@@ -242,8 +314,29 @@ class OutlineLoader:
                     f"{path}: invalid regex for {leaf_id!r}: {pat!r} ({exc})"
                 ) from exc
             compiled.append(str(pat))
+        negative_patterns_raw = raw.get("negative_patterns") or []
+        if not isinstance(negative_patterns_raw, list):
+            raise OutlineLoadError(
+                f"{path}: negative_patterns for {leaf_id!r} must be a list"
+            )
+        negative_compiled: list[str] = []
+        for pat in negative_patterns_raw:
+            try:
+                re.compile(str(pat))
+            except re.error as exc:
+                raise OutlineLoadError(
+                    f"{path}: invalid regex in negative_patterns for "
+                    f"{leaf_id!r}: {pat!r} ({exc})"
+                ) from exc
+            negative_compiled.append(str(pat))
         priority = int(raw.get("priority") or 0)
-        return VocabularyEntry(keywords=keywords, patterns=tuple(compiled), priority=priority)
+        return VocabularyEntry(
+            keywords=keywords,
+            patterns=tuple(compiled),
+            negative_keywords=negative_keywords,
+            negative_patterns=tuple(negative_compiled),
+            priority=priority,
+        )
 
     def _walk_ids(self, topics: Iterable[Topic]) -> Iterable[str]:
         for t in topics:

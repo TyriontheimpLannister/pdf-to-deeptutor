@@ -1,4 +1,4 @@
-﻿"""Asset localization — Stage 2 of the pipeline.
+"""Asset localization — Stage 2 of the pipeline.
 
 Downloads remote image URLs from MinerU output, validates them, hashes
 content for deduplication, persists them under a project-local assets

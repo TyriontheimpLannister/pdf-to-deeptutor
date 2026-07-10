@@ -37,6 +37,14 @@ class MatchDetail:
     score: int
     keyword_hits: list[str] = field(default_factory=list)
     pattern_hits: list[str] = field(default_factory=list)
+    negative_keyword_hits: list[str] = field(default_factory=list)
+    negative_pattern_hits: list[str] = field(default_factory=list)
+    chapter_stopwords_applied: list[str] = field(default_factory=list)
+
+    @property
+    def vetoed(self) -> bool:
+        """True when negative-context rules suppressed this match."""
+        return bool(self.negative_keyword_hits) or bool(self.negative_pattern_hits)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -44,6 +52,9 @@ class MatchDetail:
             "score": self.score,
             "keyword_hits": sorted(self.keyword_hits),
             "pattern_hits": sorted(self.pattern_hits),
+            "negative_keyword_hits": sorted(self.negative_keyword_hits),
+            "negative_pattern_hits": sorted(self.negative_pattern_hits),
+            "chapter_stopwords_applied": list(self.chapter_stopwords_applied),
         }
 
 
@@ -108,7 +119,7 @@ class OutlineMatcher:
         self._outline = outline
         self._min_score = min_score
         self._max_topics_per_item = max_topics_per_item
-        self._patterns = self._compile_patterns(outline)
+        self._patterns, self._negative_patterns = self._compile_patterns(outline)
 
     def match(self, items: Iterable[Item]) -> tuple[list[TopicAssignment], MatchReport]:
         leaves = self._outline.leaves()
@@ -172,11 +183,22 @@ class OutlineMatcher:
 
     def _score(self, item: Item, leaf_id: str, vocab: VocabularyEntry) -> MatchDetail:
         searchable = item.searchable
+
+        # Chapter-scoped stopwords: scrub the word-from-share noise that
+        # appears in every item of a given chapter so that weak-positive
+        # keywords never accumulate into a false multi-topic match.
+        # Patterns keep running on the original searchable; only the
+        # keyword substring check sees the scrubbed text. This keeps
+        # ``chapter_stopwords`` low-risk: it can only *remove* a hit,
+        # never add one.
+        stopwords = self._outline.chapter_stopwords_for(leaf_id)
+        scrubbed, applied = self._scrub_stopwords(searchable, stopwords)
+
         keyword_hits: list[str] = []
         for kw in vocab.keywords:
             if not kw:
                 continue
-            if kw.lower() in searchable:
+            if kw.lower() in scrubbed:
                 keyword_hits.append(kw)
         pattern_hits: list[str] = []
         for pat in self._patterns.get(leaf_id, ()):
@@ -185,20 +207,72 @@ class OutlineMatcher:
         # Deduplicate identical patterns (shouldn't happen post-parse,
         # but cheap insurance).
         pattern_hits = sorted(set(pattern_hits))
+
+        # Negative-context veto: if any negative rule hits, this leaf
+        # is suppressed below ``min_score`` so it never enters the
+        # candidate set. We still record the negative hits so the
+        # review report can surface "tried X, vetoed by Y".
+        negative_keyword_hits = [
+            kw for kw in vocab.negative_keywords if kw and kw.lower() in searchable
+        ]
+        negative_pattern_hits = [
+            pat.pattern
+            for pat in self._negative_patterns.get(leaf_id, ())
+            if pat.search(searchable)
+        ]
+        vetoed = bool(negative_keyword_hits) or bool(negative_pattern_hits)
+
+        base_score = len(keyword_hits) + len(pattern_hits)
+        score = self._min_score - 1 if vetoed else base_score
         return MatchDetail(
             topic_id=leaf_id,
-            score=len(keyword_hits) + len(pattern_hits),
+            score=score,
             keyword_hits=keyword_hits,
             pattern_hits=pattern_hits,
+            negative_keyword_hits=negative_keyword_hits,
+            negative_pattern_hits=negative_pattern_hits,
+            chapter_stopwords_applied=applied,
         )
 
-    def _compile_patterns(self, outline: Outline) -> dict[str, tuple[re.Pattern[str], ...]]:
+    @staticmethod
+    def _scrub_stopwords(
+        text: str, stopwords: tuple[str, ...]
+    ) -> tuple[str, list[str]]:
+        """Replace each chapter-stopword occurrence with the same
+        number of spaces so keyword substring checks no longer see it,
+        but byte offsets in the original text stay meaningful.
+        Returns the scrubbed text and the (deduplicated, order-stable)
+        list of stopwords that actually appeared at least once.
+        """
+        if not stopwords:
+            return text, []
+        scrubbed = text
+        applied: list[str] = []
+        for sw in stopwords:
+            sw_low = sw.lower()
+            if not sw_low or sw_low not in scrubbed:
+                continue
+            scrubbed = scrubbed.replace(sw_low, " " * len(sw_low))
+            applied.append(sw)
+        return scrubbed, applied
+
+    def _compile_patterns(
+        self, outline: Outline
+    ) -> tuple[
+        dict[str, tuple[re.Pattern[str], ...]],
+        dict[str, tuple[re.Pattern[str], ...]],
+    ]:
+        """Pre-compile the positive and negative regex patterns per leaf."""
         compiled: dict[str, tuple[re.Pattern[str], ...]] = {}
+        negative: dict[str, tuple[re.Pattern[str], ...]] = {}
         for leaf_id, vocab in outline.vocabulary.items():
-            ps = tuple(re.compile(p) for p in vocab.patterns)
-            if ps:
-                compiled[leaf_id] = ps
-        return compiled
+            pos = tuple(re.compile(p) for p in vocab.patterns)
+            if pos:
+                compiled[leaf_id] = pos
+            neg = tuple(re.compile(p) for p in vocab.negative_patterns)
+            if neg:
+                negative[leaf_id] = neg
+        return compiled, negative
 
 
 def leaves_and_order(outline: Outline, leaf_id: str) -> int:

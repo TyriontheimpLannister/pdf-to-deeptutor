@@ -1,4 +1,4 @@
-﻿"""Asset localizer — Stage 2 pipeline step."""
+"""Asset localizer — Stage 2 pipeline step."""
 
 from __future__ import annotations
 

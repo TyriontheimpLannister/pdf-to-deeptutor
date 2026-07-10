@@ -1,4 +1,4 @@
-﻿"""Downloader abstraction with an httpx default implementation."""
+"""Downloader abstraction with an httpx default implementation."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-﻿"""Project workspace: directory layout and lifecycle."""
+"""Project workspace: directory layout and lifecycle."""
 
 from __future__ import annotations
 

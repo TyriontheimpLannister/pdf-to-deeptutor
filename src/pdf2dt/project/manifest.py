@@ -1,4 +1,4 @@
-﻿"""Project manifest: stage records and persistence helpers."""
+"""Project manifest: stage records and persistence helpers."""
 
 from __future__ import annotations
 

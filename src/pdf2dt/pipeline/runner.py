@@ -1,4 +1,4 @@
-﻿"""Pipeline runner — orchestrates Stages 0, 1, and 2 for the MVP.
+"""Pipeline runner — orchestrates Stages 0, 1, and 2 for the MVP.
 
 Stage 0 — workspace creation
 Stage 1 — MinerU inbox ingestion

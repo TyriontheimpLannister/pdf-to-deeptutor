@@ -1,4 +1,4 @@
-﻿"""Data models for asset localization."""
+"""Data models for asset localization."""
 
 from __future__ import annotations
 
