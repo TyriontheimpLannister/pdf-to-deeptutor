@@ -2,7 +2,7 @@
 
 > Updated: 2026-07-12 06:39
 > Owner: ian
-> Status: DONE (backport to upstream `a5f60ac` complete; uncommitted — no push requested this session)
+> Status: DONE (backport to upstream `a5f60ac` complete; committed `3045af4`, pushed to origin/main)
 
 ## Current Goal
 
@@ -95,6 +95,7 @@ Do not modify:
   scripts/review.py). Faithful copy + `math_pp`→`pdf2dt` rename; math/geometry
   kept. Brought math demo fixture + `elementary-math-v1.yaml` + pre-built
   `projects/demo-g8-triangle`. 272 passed / 1 skipped. Clarified "domain-neutral
-  = domain-agnostic, math is a reference domain" (not math-free). Uncommitted.
+  = domain-agnostic, math is a reference domain" (not math-free). Committed
+  `3045af4`, pushed to origin/main.
 - 2026-07-10 20:07 ian: committed + pushed the c9ae123 parity +
   domain-neutralization pass (`9dc68bb`, origin/main). 77 passed / 2 skipped.
