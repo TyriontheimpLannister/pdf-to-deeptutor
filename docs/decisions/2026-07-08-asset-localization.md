@@ -1,4 +1,4 @@
-﻿# Asset localization — remote URLs are forbidden after Stage 2
+# Asset localization — remote URLs are forbidden after Stage 2
 
 ## Decision
 

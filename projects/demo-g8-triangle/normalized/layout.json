@@ -1,0 +1,376 @@
+{
+  "$note": "Synthetic fixture. Schema mirrors a simplified subset of MinerU's layout.json output (page-level blocks with bbox, type, and content).",
+  "task_id": "g8-triangle-ch03-sample",
+  "pages": [
+    {
+      "page_index": 0,
+      "page_number": 1,
+      "blocks": [
+        {
+          "block_id": "p001-b001",
+          "type": "heading",
+          "level": 1,
+          "bbox": [
+            80,
+            60,
+            600,
+            110
+          ],
+          "text": "第十二章 全等三角形"
+        },
+        {
+          "block_id": "p001-b002",
+          "type": "heading",
+          "level": 2,
+          "bbox": [
+            80,
+            130,
+            400,
+            170
+          ],
+          "text": "12.1 全等三角形的概念"
+        },
+        {
+          "block_id": "p001-b003",
+          "type": "paragraph",
+          "bbox": [
+            80,
+            180,
+            720,
+            240
+          ],
+          "text": "两个三角形能够完全重合,称它们为全等三角形。重合的顶点叫做对应顶点,重合的边叫做对应边,重合的内角叫做对应角。"
+        },
+        {
+          "block_id": "p001-b004",
+          "type": "definition",
+          "bbox": [
+            80,
+            260,
+            720,
+            380
+          ],
+          "text": "若 triangle_ABC 全等 triangle_DEF,则对应边相等,对应角相等。",
+          "labels": [
+            "定义 12.1"
+          ]
+        },
+        {
+          "block_id": "p001-b005",
+          "type": "heading",
+          "level": 2,
+          "bbox": [
+            80,
+            410,
+            400,
+            450
+          ],
+          "text": "12.2 全等三角形的判定"
+        },
+        {
+          "block_id": "p001-b006",
+          "type": "heading",
+          "level": 3,
+          "bbox": [
+            80,
+            470,
+            320,
+            500
+          ],
+          "text": "12.2.1 边角边定理 (SAS)"
+        },
+        {
+          "block_id": "p001-b007",
+          "type": "theorem",
+          "bbox": [
+            80,
+            510,
+            720,
+            600
+          ],
+          "text": "两边和它们的夹角分别相等的两个三角形全等。",
+          "labels": [
+            "定理 12.1",
+            "SAS"
+          ]
+        },
+        {
+          "block_id": "p001-b008",
+          "type": "figure",
+          "bbox": [
+            120,
+            620,
+            480,
+            920
+          ],
+          "image_url": "https://mineru.example/tmp/img_p001_001.png",
+          "caption": "三角形 ABC"
+        }
+      ]
+    },
+    {
+      "page_index": 1,
+      "page_number": 2,
+      "blocks": [
+        {
+          "block_id": "p002-b001",
+          "type": "heading",
+          "level": 3,
+          "bbox": [
+            80,
+            60,
+            320,
+            100
+          ],
+          "text": "12.2.2 角边角定理 (ASA)"
+        },
+        {
+          "block_id": "p002-b002",
+          "type": "theorem",
+          "bbox": [
+            80,
+            110,
+            720,
+            200
+          ],
+          "text": "两角和它们的夹边分别相等的两个三角形全等。",
+          "labels": [
+            "定理 12.2",
+            "ASA"
+          ]
+        },
+        {
+          "block_id": "p002-b003",
+          "type": "heading",
+          "level": 3,
+          "bbox": [
+            80,
+            220,
+            320,
+            260
+          ],
+          "text": "12.2.3 边边边定理 (SSS)"
+        },
+        {
+          "block_id": "p002-b004",
+          "type": "theorem",
+          "bbox": [
+            80,
+            270,
+            720,
+            360
+          ],
+          "text": "三边分别相等的两个三角形全等。",
+          "labels": [
+            "定理 12.3",
+            "SSS"
+          ]
+        },
+        {
+          "block_id": "p002-b005",
+          "type": "figure",
+          "bbox": [
+            80,
+            380,
+            720,
+            700
+          ],
+          "image_url": "https://mineru.example/tmp/img_p003_001.png",
+          "caption": "两个全等三角形"
+        }
+      ]
+    },
+    {
+      "page_index": 2,
+      "page_number": 3,
+      "blocks": [
+        {
+          "block_id": "p003-b001",
+          "type": "heading",
+          "level": 2,
+          "bbox": [
+            80,
+            60,
+            400,
+            100
+          ],
+          "text": "12.3 例题"
+        },
+        {
+          "block_id": "p003-b002",
+          "type": "worked_example",
+          "bbox": [
+            80,
+            110,
+            720,
+            360
+          ],
+          "text": "在 triangle_ABC 中,AB = AC,点 D 在 AC 上,且 BD = BC。求证:angle_ABD = angle_DBC。",
+          "labels": [
+            "例题 12.1"
+          ]
+        },
+        {
+          "block_id": "p003-b003",
+          "type": "figure",
+          "bbox": [
+            120,
+            380,
+            480,
+            700
+          ],
+          "image_url": "https://mineru.example/tmp/img_p004_001.png",
+          "caption": "例题 12.1 配图"
+        },
+        {
+          "block_id": "p003-b004",
+          "type": "solution",
+          "bbox": [
+            80,
+            720,
+            720,
+            880
+          ],
+          "text": "由 AB = AC 得 angle_ABC = angle_ACB。由 BD = BC 得 angle_BDC = angle_C。从而 angle_ABD = angle_DBC。"
+        },
+        {
+          "block_id": "p003-b005",
+          "type": "worked_example",
+          "bbox": [
+            80,
+            900,
+            720,
+            1100
+          ],
+          "text": "在四边形 PQRS 中,PS 平行 QR,且 PS = QR。求证:PQRS 是平行四边形。",
+          "labels": [
+            "例题 12.2"
+          ]
+        },
+        {
+          "block_id": "p003-b006",
+          "type": "figure",
+          "bbox": [
+            120,
+            1120,
+            600,
+            1420
+          ],
+          "image_url": "https://mineru.example/tmp/img_p002_001.png",
+          "caption": "例题 12.2 配图"
+        },
+        {
+          "block_id": "p003-b007",
+          "type": "solution",
+          "bbox": [
+            80,
+            1440,
+            720,
+            1600
+          ],
+          "text": "连接 PR。由 PS 平行 QR 且 PS = QR 得 triangle_PSR 全等 triangle_RQP (SAS)。"
+        }
+      ]
+    },
+    {
+      "page_index": 3,
+      "page_number": 4,
+      "blocks": [
+        {
+          "block_id": "p004-b001",
+          "type": "heading",
+          "level": 2,
+          "bbox": [
+            80,
+            60,
+            400,
+            100
+          ],
+          "text": "12.4 习题"
+        },
+        {
+          "block_id": "p004-b002",
+          "type": "exercise",
+          "bbox": [
+            80,
+            110,
+            720,
+            240
+          ],
+          "text": "已知 triangle_ABC 全等 triangle_DEF,且 AB = 5, BC = 7, CA = 8。求 triangle_DEF 的三边长。",
+          "labels": [
+            "习题 12.1"
+          ]
+        },
+        {
+          "block_id": "p004-b003",
+          "type": "exercise",
+          "bbox": [
+            80,
+            260,
+            720,
+            420
+          ],
+          "text": "在 triangle_ABC 与 triangle_DBC 中,若 AB = DB, angle_ABC = angle_DBC, BC = BC。能否判定两三角形全等?为什么?",
+          "labels": [
+            "习题 12.2"
+          ]
+        },
+        {
+          "block_id": "p004-b004",
+          "type": "exercise",
+          "bbox": [
+            80,
+            440,
+            720,
+            600
+          ],
+          "text": "如图,AD 垂直 BC 于 D,AE 垂直 BF 于 E。试说明 triangle_ABD 全等 triangle_EBD 的条件。",
+          "labels": [
+            "习题 12.3"
+          ]
+        },
+        {
+          "block_id": "p004-b005",
+          "type": "heading",
+          "level": 2,
+          "bbox": [
+            80,
+            640,
+            320,
+            680
+          ],
+          "text": "12.5 小结"
+        },
+        {
+          "block_id": "p004-b006",
+          "type": "chapter_summary",
+          "bbox": [
+            80,
+            690,
+            720,
+            820
+          ],
+          "text": "本章学习了全等三角形的概念、四种基本判定方法(SAS、ASA、SSS、HL)以及典型应用。"
+        },
+        {
+          "block_id": "p004-b007",
+          "type": "paragraph",
+          "bbox": [
+            80,
+            850,
+            720,
+            950
+          ],
+          "text": "鸡兔同笼:笼中有头 35 个,足 94 只,问鸡兔各几何?"
+        }
+      ]
+    }
+  ],
+  "image_urls": [
+    "https://mineru.example/tmp/img_p001_001.png",
+    "https://mineru.example/tmp/img_p002_001.png",
+    "https://mineru.example/tmp/img_p003_001.png",
+    "https://mineru.example/tmp/img_p004_001.png"
+  ]
+}

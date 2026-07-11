@@ -12,23 +12,33 @@ Font handling:
   ``simhei.ttf`` (SimHei) for Chinese text. If neither is available it
   falls back to fpdf2's bundled ``DejaVuSans`` and warns that CJK
   characters may be rendered as placeholders.
+
+Figure validation:
+
+* Every figure referenced by an export plan is tracked as either
+  successfully embedded or missing.
+* :class:`RenderResult` records ``missing_figures`` and a
+  ``validation_status`` (``ready`` / ``warning`` / ``blocked``).
+* The ``export_manifest.json`` and ``project.json`` exports array
+  both carry per-export validation status.
 """
 from __future__ import annotations
 
 import hashlib
 import json
-import os
+import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from fpdf import FPDF
 
-from ..project import ProjectWorkspace, StageStatus, record_stage
+from ..project import ProjectWorkspace, StageStatus, record_stage, save_manifest
 from .planner import ExportPlan, ExportPlanCollection, ReorgMode
 
+logger = logging.getLogger(__name__)
 
 # Try to locate a Chinese system font on Windows.
 _CANDIDATE_CJK_FONTS = [
@@ -66,10 +76,6 @@ class _PdfDoc(FPDF):
         self.set_title(title)
 
     def _setup_fonts(self) -> None:
-        # Body font. ``uni=True`` was the historical way to mark a font
-        # as supporting the full Unicode range in fpdf2 < 2.5.1; from
-        # 2.5.1 onwards the parameter is deprecated and any TrueType /
-        # OpenType font is treated as Unicode-aware by default.
         if self._use_cjk:
             self.add_font("uni", "", str(self._cjk_font_path))
             self.add_font("uni", "B", str(self._cjk_font_path))
@@ -118,9 +124,13 @@ class _PdfDoc(FPDF):
     def _safe(self, text: str) -> str:
         if self._use_cjk:
             return text
-        # Fall-back: strip characters that DejaVu cannot render so the
-        # PDF still generates without fpdf2 raising UnicodeEncodeError.
         return re.sub(r"[^\u0000-\u007F\u00A0-\u024F]+", "?", text)
+
+
+class ExportValidationStatus(str):
+    READY = "ready"
+    WARNING = "warning"
+    BLOCKED = "blocked"
 
 
 @dataclass
@@ -128,7 +138,35 @@ class RenderResult:
     output_path: Path
     plan_id: str
     item_count: int
-    figure_count: int
+    figure_count: int = 0
+    """Number of figures successfully embedded."""
+    missing_figures: list[str] = field(default_factory=list)
+    """Figure IDs that were referenced but could not be embedded."""
+    warnings: list[str] = field(default_factory=list)
+    """Human-readable warnings generated during rendering."""
+    geometry_blocked_figures: list[str] = field(default_factory=list)
+    """Figure IDs that have unreviewed visual_inference/unknown relations."""
+    validation_status: str = ExportValidationStatus.READY
+    plan_mode: str = ""
+
+    def _compute_validation_status(self) -> str:
+        # Geometry evidence rules: any unreviewed
+        # ``visual_inference`` / ``unknown`` relation is a hard
+        # block.  The relation is excluded from the PDF; the
+        # block here prevents the user from uploading the export
+        # thinking all relations are confirmed.
+        if self.geometry_blocked_figures:
+            return ExportValidationStatus.BLOCKED
+        if not self.missing_figures:
+            return ExportValidationStatus.READY
+        # All figures missing → blocked; some missing → warning.
+        if self.figure_count == 0:
+            return ExportValidationStatus.BLOCKED
+        return ExportValidationStatus.WARNING
+
+    def finalise(self) -> None:
+        """Compute and set validation_status based on figure results."""
+        self.validation_status = self._compute_validation_status()
 
 
 class PdfRenderer:
@@ -139,7 +177,9 @@ class PdfRenderer:
         self._cjk_font = _find_cjk_font()
         self._assets_dir = workspace.root / "assets"
         self._assets_registry: dict[str, dict[str, Any]] = {}
+        self._geometry_by_asset: dict[str, Any] = {}
         self._load_assets_registry()
+        self._load_geometry()
 
     def render_collection(self, collection: ExportPlanCollection) -> list[RenderResult]:
         results: list[RenderResult] = []
@@ -176,29 +216,69 @@ class PdfRenderer:
             )
         pdf.ln(5)
 
-        # Mode C: render every bridge that the planner attached to
-        # this plan, in order, at the top of the plan. The first
-        # plan in a collection has no predecessors so its bridge list
-        # is empty; subsequent plans have exactly one bridge each.
+        # Mode C bridges.
         for bridge in plan.bridges:
             pdf.write_paragraph("")
             pdf.write_paragraph(bridge.text)
 
         rendered_figures: set[str] = set()
+        missing_figures: list[str] = []
+        warnings: list[str] = []
+
         for item in plan.items:
-            self._render_item(pdf, item, rendered_figures)
+            self._render_item(pdf, item, rendered_figures, missing_figures, warnings)
 
         pdf.output(str(out_path))
-        return RenderResult(
+
+        result = RenderResult(
             output_path=out_path,
             plan_id=plan.plan_id,
             item_count=len(plan.items),
             figure_count=len(rendered_figures),
+            missing_figures=list(missing_figures),
+            warnings=warnings,
+            plan_mode=plan.mode.value,
         )
+        result.geometry_blocked_figures = self._geometry_blocked_for_plan(
+            plan
+        )
+        result.finalise()
+
+        if result.validation_status != ExportValidationStatus.READY:
+            logger.warning(
+                "Plan %s: %s (%d missing figures)",
+                plan.plan_id,
+                result.validation_status,
+                len(result.missing_figures),
+            )
+
+        return result
 
     # ------------------------------------------------------------------ #
     # Internals
     # ------------------------------------------------------------------ #
+
+    def _load_geometry(self) -> None:
+        """Load the geometry queue produced by Stage 5.
+
+        We index figures by ``asset_id`` so the figure renderer can
+        quickly look up relations for the figure it just embedded.
+        Missing or malformed files are silently ignored — the
+        renderer must still produce a PDF for layouts that have no
+        geometry content.
+        """
+        geo_path = self._workspace.review_dir / "geometry_figures.json"
+        if not geo_path.is_file():
+            return
+        try:
+            data = json.loads(geo_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.warning("geometry_figures.json unreadable: %s", exc)
+            return
+        for fig in data.get("figures") or []:
+            aid = fig.get("asset_id")
+            if aid:
+                self._geometry_by_asset[str(aid)] = fig
 
     def _load_assets_registry(self) -> None:
         reg_path = self._workspace.normalized_dir / "assets_registry.json"
@@ -218,6 +298,8 @@ class PdfRenderer:
         pdf: _PdfDoc,
         item: dict[str, Any],
         rendered_figures: set[str],
+        missing_figures: list[str],
+        warnings: list[str],
     ) -> None:
         item_type = item.get("item_type") or "other"
         title = item.get("title") or ""
@@ -225,14 +307,12 @@ class PdfRenderer:
 
         pdf.write_heading(f"[{item_type}] {title}", level=3)
 
-        # Body text (skip the title if it is duplicated at the start).
         body = text
         if body.startswith(title):
             body = body[len(title):].lstrip()
         if body:
             pdf.write_paragraph(body)
 
-        # Page refs.
         page_refs = sorted(set(item.get("page_refs") or []))
         if page_refs:
             pdf.write_caption(f"Source pages: {', '.join(str(p) for p in page_refs)}")
@@ -242,35 +322,46 @@ class PdfRenderer:
             aid = asset.get("asset_id")
             if not aid or aid in rendered_figures:
                 continue
-            rendered_figures.add(aid)
-            self._render_figure(pdf, aid, asset.get("caption"))
+            success = self._render_figure(pdf, aid, asset.get("caption"))
+            if success:
+                rendered_figures.add(aid)
+            else:
+                missing_figures.append(aid)
+                warnings.append(f"Figure {aid} could not be embedded")
 
-    def _render_figure(self, pdf: _PdfDoc, asset_id: str, caption: str | None) -> None:
+    def _render_figure(self, pdf: _PdfDoc, asset_id: str, caption: str | None) -> bool:
+        """Try to embed the figure image into the PDF.
+
+        Returns ``True`` if the image was successfully embedded,
+        ``False`` if it was degraded to a caption placeholder.
+        """
         asset = self._assets_registry.get(asset_id)
         if asset is None:
             pdf.write_caption(f"[Figure {asset_id} — metadata not found]")
-            return
+            logger.warning("Figure %s: metadata not found in registry", asset_id)
+            return False
 
         local_path = asset.get("local_path")
         if not local_path:
             pdf.write_caption(f"[Figure {asset_id} — no local path]")
-            return
+            logger.warning("Figure %s: no local_path in registry", asset_id)
+            return False
 
         img_path = self._workspace.root / local_path
         if not img_path.is_file():
-            # Some registries store paths relative to the workspace root
-            # with backslashes; try a direct join as a fallback.
             alt_path = Path(local_path)
             if alt_path.is_file():
                 img_path = alt_path
             else:
                 pdf.write_caption(f"[Figure {asset_id} — file not found: {local_path}]")
-                return
+                logger.warning("Figure %s: file not found at %s", asset_id, local_path)
+                return False
 
         # Scale to fit page width (190 mm) preserving aspect ratio.
         width_mm = 190
         try:
             from PIL import Image as PILImage
+
             with PILImage.open(img_path) as pil_img:
                 orig_w, orig_h = pil_img.size
         except Exception:
@@ -294,31 +385,138 @@ class PdfRenderer:
             pdf.set_y(pdf.get_y() + height_mm + 3)
         except Exception as exc:
             pdf.write_caption(f"[Figure {asset_id} — render error: {exc}]")
-            return
+            logger.warning("Figure %s: render error: %s", asset_id, exc)
+            return False
 
         cap = caption or asset.get("caption") or f"Figure {asset_id}"
         if cap:
             pdf.write_caption(cap)
+
+        # Geometry relations: only embed relations whose review state
+        # is ``confirmed`` or ``corrected``.  Visual_inference and
+        # unknown evidence must be excluded unless explicitly
+        # reviewed — see
+        # ``docs/decisions/2026-07-10-geometry-review-stages.md``.
+        geo = self._geometry_by_asset.get(asset_id)
+        if geo:
+            self._render_geometry_relations(pdf, geo)
+            self._render_geometry_description(pdf, geo)
+
+        return True
+
+    def _render_geometry_relations(
+        self, pdf: _PdfDoc, geo: dict[str, Any]
+    ) -> None:
+        """Render geometry relations for an embedded figure.
+
+        Only relations whose review state is ``confirmed`` or
+        ``corrected`` are written into the PDF. ``visual_inference``
+        and ``unknown`` evidence relations are skipped — see
+        ``docs/decisions/2026-07-10-geometry-review-stages.md``.
+        """
+        for rel in geo.get("relations") or []:
+            review_state = rel.get("review_state")
+            if review_state not in ("confirmed", "corrected"):
+                continue
+            line = self._format_relation(rel)
+            if line:
+                pdf.write_caption(f"  • {line}")
+
+    def _render_geometry_description(
+        self, pdf: _PdfDoc, geo: dict[str, Any]
+    ) -> None:
+        """Render a deterministic natural-language figure description.
+
+        The description is generated from the same
+        ``include_only=confirmed/corrected`` set as the bullet
+        list.  When no relations survive the filter the
+        description is suppressed and the existing caption-only
+        behaviour applies.  See
+        ``docs/decisions/2026-07-10-figure-descriptions.md``.
+        """
+        from ..geometry import (
+            GeometryFigure,
+            describe_figure_block,
+        )
+
+        try:
+            figure = GeometryFigure.from_dict(geo)
+        except (KeyError, ValueError, TypeError):
+            # Malformed queue entry — skip the description
+            # rather than fail the whole export.  The bullet
+            # list is unaffected.
+            return
+        block = describe_figure_block(figure)
+        if not block:
+            return
+        # Use the same caption style as the bullet list so the
+        # PDF stays visually consistent.  Italics would change
+        # the font; we keep it as a plain caption.
+        pdf.write_caption(f"  {block}")
+
+    def _format_relation(self, rel: dict[str, Any]) -> str:
+        rtype = rel.get("type") or "relates"
+        entities = rel.get("entities") or []
+        evidence = rel.get("evidence") or ""
+        joined = ", ".join(str(e) for e in entities if e)
+        if not joined:
+            return ""
+        return f"{rtype} ({evidence}): {joined}"
+
+    def _geometry_blocked_for_plan(self, plan: ExportPlan) -> list[str]:
+        """Return figure IDs in ``plan`` with unreviewed geometry relations.
+
+        A figure is considered blocked when at least one of its
+        relations has evidence ``visual_inference`` or ``unknown``
+        and is not in a ``confirmed``/``corrected`` review state.
+        """
+        blocked: list[str] = []
+        for item in plan.items:
+            for asset in item.get("asset_refs") or []:
+                aid = asset.get("asset_id")
+                if not aid or aid in blocked:
+                    continue
+                geo = self._geometry_by_asset.get(aid)
+                if not geo:
+                    continue
+                for rel in geo.get("relations") or []:
+                    review_state = rel.get("review_state")
+                    if review_state in ("confirmed", "corrected"):
+                        continue
+                    evidence = rel.get("evidence")
+                    if evidence in ("visual_inference", "unknown"):
+                        blocked.append(aid)
+                        break
+        return blocked
 
     def _record_stage(
         self,
         collection: ExportPlanCollection,
         results: list[RenderResult],
     ) -> None:
+        # Build export_manifest.json with per-export validation.
+        manifest_files: list[dict[str, Any]] = []
+
+        for r in results:
+            file_entry: dict[str, Any] = {
+                "plan_id": r.plan_id,
+                "path": str(r.output_path.relative_to(self._workspace.root)),
+                "sha256": hashlib.sha256(r.output_path.read_bytes()).hexdigest(),
+                "items": r.item_count,
+                "figures": r.figure_count,
+                "missing_figures": r.missing_figures,
+                "validation_status": r.validation_status,
+                "mode": r.plan_mode,
+            }
+            if r.warnings:
+                file_entry["warnings"] = r.warnings
+            manifest_files.append(file_entry)
+
         export_manifest = {
             "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "mode": collection.mode.value,
+            "requested_mode": collection.mode.value,
             "plans_rendered": len(results),
-            "files": [
-                {
-                    "plan_id": r.plan_id,
-                    "path": str(r.output_path.relative_to(self._workspace.root)),
-                    "sha256": hashlib.sha256(r.output_path.read_bytes()).hexdigest(),
-                    "items": r.item_count,
-                    "figures": r.figure_count,
-                }
-                for r in results
-            ],
+            "files": manifest_files,
         }
         manifest_path = self._workspace.exports_dir / "export_manifest.json"
         manifest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -327,10 +525,29 @@ class PdfRenderer:
             encoding="utf-8",
         )
 
+        # Determine overall stage metadata.
+        metadata_extra: dict[str, Any] = {}
+        blocked_exports = [
+            r.plan_id for r in results
+            if r.validation_status == ExportValidationStatus.BLOCKED
+        ]
+        warning_exports = [
+            r.plan_id for r in results
+            if r.validation_status == ExportValidationStatus.WARNING
+        ]
+        if blocked_exports:
+            metadata_extra["blocked_exports"] = blocked_exports
+        if warning_exports:
+            metadata_extra["warning_exports"] = warning_exports
+
         fingerprints: list[str] = []
         for r in results:
             if r.output_path.is_file():
-                fingerprints.append(hashlib.sha256(r.output_path.read_bytes()).hexdigest())
+                fingerprints.append(
+                    hashlib.sha256(r.output_path.read_bytes()).hexdigest()
+                )
+
+        # Record stage7 in the manifest.
         record_stage(
             self._workspace,
             "stage7_export",
@@ -344,11 +561,33 @@ class PdfRenderer:
             if fingerprints
             else "",
             metadata={
-                "exports_dir": str(self._workspace.exports_dir.relative_to(self._workspace.root)),
+                "exports_dir": str(
+                    self._workspace.exports_dir.relative_to(self._workspace.root)
+                ),
                 "plans_rendered": len(results),
-                "export_manifest": str(manifest_path.relative_to(self._workspace.root)),
+                "export_manifest": str(
+                    manifest_path.relative_to(self._workspace.root)
+                ),
+                **metadata_extra,
             },
         )
+
+        # Now update the project manifest's exports array.
+        # This must happen AFTER record_stage() because record_stage()
+        # re-reads from disk and would overwrite any prior changes.
+        project_manifest = self._workspace.load_manifest()
+        exports_entries = [
+            {
+                "export_id": r.plan_id,
+                "path": str(r.output_path.relative_to(self._workspace.root)),
+                "sha256": hashlib.sha256(r.output_path.read_bytes()).hexdigest(),
+                "validation_status": r.validation_status,
+                "mode": r.plan_mode,
+            }
+            for r in results
+        ]
+        project_manifest["exports"] = exports_entries
+        save_manifest(self._workspace, project_manifest)
 
 
 def render_exports(
@@ -362,7 +601,11 @@ def render_exports(
         raise FileNotFoundError(f"export plans not found: {p}")
     data = json.loads(p.read_text(encoding="utf-8"))
     mode_val = data.get("mode", "B")
-    mode_enum = ReorgMode(str(mode_val)) if not isinstance(mode_val, ReorgMode) else mode_val
+    mode_enum = (
+        ReorgMode(str(mode_val))
+        if not isinstance(mode_val, ReorgMode)
+        else mode_val
+    )
     collection = ExportPlanCollection(
         project_id=data.get("project_id", workspace.root.name),
         generated_at=data.get("generated_at", datetime.now(timezone.utc).isoformat()),

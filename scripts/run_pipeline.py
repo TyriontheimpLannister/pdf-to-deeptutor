@@ -3,13 +3,13 @@
 Usage:
 
     python scripts/run_pipeline.py \
-        --inbox demos/inbox-sample/sample-chapter-01 \
-        --project-root projects/demo-sample-chapter \
-        --project-id demo-sample-chapter \
-        --title "Demo: Chapter Export" \
+        --inbox inbox-sample/g8-triangle-ch03 \
+        --project-root projects/demo-g8-triangle \
+        --project-id demo-g8-triangle \
+        --title "Demo: 八年级全等三角形" \
         --downloader local \
-        --mirror demos/inbox-sample/sample-chapter-01/images \
-        --outline outlines/sample-outline-v1.yaml \
+        --mirror inbox-sample/g8-triangle-ch03/images \
+        --outline outlines/elementary-math-v1.yaml \
         --book-view \
         --mode B \
         --export
@@ -40,6 +40,7 @@ the public Python API.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -56,8 +57,19 @@ from pdf2dt.export import (  # noqa: E402
     render_exports,
     resolve_bridge_provider,
 )
+from pdf2dt.geometry import analyze_geometry, build_geometry_analyzer  # noqa: E402
 from pdf2dt.outlining import OutlineLoadError, match_project  # noqa: E402
 from pdf2dt.pipeline import run_pipeline  # noqa: E402
+from pdf2dt.project import (  # noqa: E402
+    StageStatus,
+    is_stage_completed,
+    record_stage,
+)
+from pdf2dt.review import (  # noqa: E402
+    PromotionError,
+    ReviewDecision,
+    apply_review,
+)
 
 
 def main() -> int:
@@ -66,8 +78,8 @@ def main() -> int:
     p.add_argument("--project-root", required=True, help="Where to create the project.")
     p.add_argument("--project-id", required=True, help="Stable project identifier.")
     p.add_argument("--title", required=True, help="Human-readable project title.")
-    p.add_argument("--subject", default="general")
-    p.add_argument("--stage", default="sample")
+    p.add_argument("--subject", default="math")
+    p.add_argument("--stage", default="middle-G8")
     p.add_argument(
         "--downloader",
         choices=["local", "http"],
@@ -101,12 +113,14 @@ def main() -> int:
     p.add_argument(
         "--mode",
         choices=["A", "B", "C"],
-        default="B",
+        default=None,
         help=(
             "Export reorganization mode: A=source order, B=topic cluster "
             "(default), C=topic cluster with generative transitions "
             "(writes one Bridge per adjacent plan via --bridge-provider). "
-            "Used with --export."
+            "Used with --export. When explicitly supplied, the mode is "
+            "forced for every topic; otherwise the outline's per-topic "
+            "strategy is respected."
         ),
     )
     p.add_argument(
@@ -117,9 +131,7 @@ def main() -> int:
             "BridgeProvider for Mode C. Default 'mock' ships a "
             "deterministic placeholder so the test suite and the default "
             "CLI UX never require external LLM access. 'noop' skips "
-            "bridges entirely (Mode C degrades to Mode B). Custom "
-            "providers can be registered via the Python API "
-            "(pdf2dt.export.register_bridge_provider)."
+            "bridges entirely (Mode C degrades to Mode B)."
         ),
     )
     p.add_argument(
@@ -129,6 +141,48 @@ def main() -> int:
             "Run Stage 4c (export planning) and Stage 7 (PDF rendering). "
             "Requires --book-view. Writes export_plan/plans.json and "
             "exports/deeptutor/*.pdf."
+        ),
+    )
+    p.add_argument(
+        "--geometry",
+        action="store_true",
+        help=(
+            "Run Stage 5 (geometry analysis) after Stage 3. Persists "
+            "review/geometry_figures.json and reports/"
+            "geometry_extraction_report.json. Skipped when the stage "
+            "is already completed in the project manifest; pass "
+            "--force-geometry to re-extract."
+        ),
+    )
+    p.add_argument(
+        "--geometry-provider",
+        choices=["rules", "hybrid-minimax-m3", "hybrid-sensenova"],
+        default="rules",
+        help=(
+            "Geometry provider. rules is offline; hybrid providers add "
+            "review-only VLM visual inferences and fall back to rules on errors."
+        ),
+    )
+    p.add_argument(
+        "--force-geometry",
+        action="store_true",
+        help=(
+            "Re-run Stage 5 even when stage5_geometry is already "
+            "completed. Clears review/review_state.json because the "
+            "new queue overwrites every relation's review_state; the "
+            "reset is recorded in the project manifest."
+        ),
+    )
+    p.add_argument(
+        "--review",
+        type=Path,
+        default=None,
+        help=(
+            "Optional path to a JSON file of review decisions to apply "
+            "after Stage 5. See scripts/review.py for the schema. When "
+            "omitted, the existing review/geometry_figures.json is left "
+            "as-is (the renderer still honours whatever review_state "
+            "is already recorded for each relation)."
         ),
     )
     args = p.parse_args()
@@ -215,14 +269,81 @@ def main() -> int:
             f"book_view/book_view.json"
         )
 
+    if args.geometry:
+        if not args.book_view:
+            print("Error: --geometry requires --book-view", file=sys.stderr)
+            return 8
+        # Mirror scripts/rerun_late_stages.py: skip Stage 5 when it is
+        # already completed unless the user explicitly forces a re-run.
+        # Without this guard, analyze_geometry() would overwrite
+        # review/geometry_figures.json and discard every confirmed/
+        # corrected/rejected review_state while review_state.json
+        # stayed stale.
+        if args.force_geometry or not is_stage_completed(
+            result.workspace, "stage5_geometry"
+        ):
+            figures, report = analyze_geometry(
+                result.workspace,
+                analyzer=build_geometry_analyzer(args.geometry_provider),
+                force=args.force_geometry,
+            )
+            print(
+                f"[stage5] figures={report.figures_total}, "
+                f"with_relations={report.figures_with_relations}, "
+                f"relations={report.relations_total}, "
+                f"evidence={report.evidence_counts}, "
+                f"review/geometry_figures.json"
+            )
+        else:
+            record_stage(
+                result.workspace, "stage5_geometry", status=StageStatus.SKIPPED
+            )
+            print(
+                "[stage5] skipped (already completed; pass "
+                "--force-geometry to re-extract)"
+            )
+
+    if args.review is not None:
+        if not args.review.is_file():
+            print(f"Error: --review file not found: {args.review}", file=sys.stderr)
+            return 9
+        decisions_payload = json.loads(args.review.read_text(encoding="utf-8"))
+        if not isinstance(decisions_payload, list):
+            print(
+                "Error: --review file must be a JSON array of decisions",
+                file=sys.stderr,
+            )
+            return 10
+        decisions = [ReviewDecision.from_dict(d) for d in decisions_payload]
+        try:
+            applied, counts = apply_review(result.workspace, decisions)
+        except PromotionError as exc:
+            print(f"Error: review promotion failed: {exc}", file=sys.stderr)
+            return 11
+        except FileNotFoundError as exc:
+            print(
+                f"Error: stage 5 output missing — run --geometry first: {exc}",
+                file=sys.stderr,
+            )
+            return 12
+        print(
+            f"[stage6] applied={len(applied)} decision(s), "
+            f"state_counts={counts}, review/review_state.json"
+        )
+
+    # Geometry analysis and review must happen before Stage 4c/7 so the
+    # renderer can include reviewed relations and block unsafe inferences.
     if args.export:
         if not args.book_view:
             print("Error: --export requires --book-view", file=sys.stderr)
             return 5
+        plan_mode = args.mode if args.mode is not None else "B"
+        force_mode = args.mode is not None
         try:
             collection = plan_exports(
                 result.workspace,
-                mode=args.mode,
+                mode=plan_mode,
+                force_mode=force_mode,
                 outline_path=args.outline,
                 bridge_provider=resolve_bridge_provider(args.bridge_provider),
             )
@@ -232,7 +353,7 @@ def main() -> int:
 
         bridge_count = sum(len(p.bridges) for p in collection.plans)
         print(
-            f"[stage4c] mode={args.mode}, plans={len(collection.plans)}, "
+            f"[stage4c] mode={plan_mode}, plans={len(collection.plans)}, "
             f"bridges={bridge_count} ({args.bridge_provider or 'mock'}), "
             f"export_plans/plans.json"
         )
@@ -243,8 +364,12 @@ def main() -> int:
             print(f"Error: rendering failed: {exc}", file=sys.stderr)
             return 7
 
+        blocked = sum(1 for r in rendered if r.validation_status == "blocked")
+        warning = sum(1 for r in rendered if r.validation_status == "warning")
+        ready = sum(1 for r in rendered if r.validation_status == "ready")
         print(
-            f"[stage7] rendered={len(rendered)} PDFs, "
+            f"[stage7] rendered={len(rendered)} PDFs "
+            f"(ready={ready}, warning={warning}, blocked={blocked}), "
             f"exports/deeptutor/"
         )
 

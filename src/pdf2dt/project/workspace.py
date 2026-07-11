@@ -126,14 +126,22 @@ class ProjectWorkspace:
         return dest
 
     def copy_mineru_raw(self, source_dir: Path | str) -> Path:
-        """Copy a MinerU task directory's contents into providers/mineru/raw/."""
+        """Copy a MinerU task directory's contents into providers/mineru/raw/.
+
+        If the target already exists and has the same content hash as the
+        source, the copy is skipped (idempotent).  If the content differs,
+        the old copy is replaced.
+        """
         src = Path(source_dir)
         if not src.is_dir():
             raise FileNotFoundError(src)
         dest = self.mineru_raw_dir
-        # Preserve the source directory tree under raw/<basename>.
         target = dest / src.name
+        src_hash = _dir_hash(src)
         if target.exists():
+            existing_hash = _dir_hash(target)
+            if existing_hash == src_hash:
+                return target
             shutil.rmtree(target)
         shutil.copytree(src, target)
         return target
@@ -198,3 +206,18 @@ def load_workspace(root: Path | str) -> ProjectWorkspace:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def _dir_hash(directory: Path) -> str:
+    """Compute a combined SHA-256 over all files under *directory*."""
+    import hashlib
+
+    h = hashlib.sha256()
+    for path in sorted(directory.rglob("*")):
+        if path.is_file():
+            h.update(path.relative_to(directory).as_posix().encode())
+            # `byteorder="big"` is the explicit default; passing it
+            # makes the call compatible with Python 3.10 where the
+            # argument was mandatory.
+            h.update(path.stat().st_size.to_bytes(8, "big"))
+    return h.hexdigest()

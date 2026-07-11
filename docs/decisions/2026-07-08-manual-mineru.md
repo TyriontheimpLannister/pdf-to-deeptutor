@@ -1,4 +1,4 @@
-﻿# Manual MinerU invocation
+# Manual MinerU invocation
 
 ## Decision
 

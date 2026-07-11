@@ -9,14 +9,14 @@ The downloader is injected so the test suite can run against local
 fixtures without network access.
 """
 
-from .localizer import AssetLocalizer, localize_loaded_task
-from .models import Asset, AssetRegistry, AssetValidationError, DownloadResult
 from .downloader import (
     AssetDownloader,
     HttpxDownloader,
     LocalFirstDownloader,
     LocalMirrorDownloader,
 )
+from .localizer import AssetLocalizer, localize_loaded_task
+from .models import Asset, AssetRegistry, AssetValidationError, DownloadResult
 
 __all__ = [
     "AssetLocalizer",

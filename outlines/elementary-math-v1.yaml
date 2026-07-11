@@ -1,0 +1,644 @@
+# elementary-math-v1 outline (v1.0.1, reviewed 2026-07-10).
+# v1.0.1 adds ``negative_keywords`` to ``typical-chickens-rabbits`` so
+# that geometry-heavy chapter summaries which happen to drop a single
+# 鸡兔同笼 杂题 no longer pull the chickens-rabbits leaf in.
+#
+# Derived from the table of contents of 《学之舟小学生知识通-数学》
+# (a 小学生数学总复习 workbook). The TOC declares seven "专题" plus a
+# 知识通 综合应用 part. Each 专题 is broken down into 第一节 / 第二节
+# / ... 节点, and each 节 into "考点一/二/..." entries which are the
+# natural leaf level for per-topic exports.
+#
+# Design notes:
+#   * Geometry topics ("图形与几何") are emphasised because the project
+#     focus is geometry import into DeepTutor, but every 专题 is kept
+#     so the outline can drive full-book exports too.
+#   * 专题七 综合与实践应用 was merged from the book's 8 节 down to 4
+#     top-level blocks (探索规律 / 应用题 / 典型问题 / 解决策略).
+#     Leaf granularity is unchanged; "应用题" and "典型问题" keep
+#     internal section containers as non-leaf children for grouping.
+#   * "图形与运动" and "图形与位置" stay under 专题五 几何, mirroring
+#     the textbook ordering and keeping geometry exports coherent.
+#   * Topic ids follow the slug rule `[a-z0-9][a-z0-9_-]*`. Numbers
+#     become ASCII digits; Chinese numerals are converted to Arabic
+#     digits when natural ("num-and-ops" rather than "shu-yu-yun-suan").
+#   * 7 张思维导图走 Stage 4b fallback — outline 不预设 hint。先跑
+#     OutlineMatcher,看到 unclassified_items 后再决定是否升级。
+
+outline_id: elementary-math-v1
+name: 学之舟小学生知识通-数学 (elementary math review)
+version: 1.0.1
+
+applies_to:
+  subject: math
+  stage: elementary
+
+topics:
+  - id: num-and-ops
+    label: 专题一 数与运算
+    description: 整数 / 因数倍数 / 小数分数百分数 / 正负数 / 数的运算。
+    children:
+      - id: num-and-ops-integers
+        label: 第一节 整数的认识
+        children:
+          - id: num-and-ops-integers-classify
+            label: 考点一 整数的分类和意义
+          - id: num-and-ops-integers-read-write
+            label: 考点二 整数的读写和改写
+          - id: num-and-ops-integers-compare
+            label: 考点三 整数大小的比较
+      - id: num-and-ops-factors
+        label: 第二节 因数和倍数
+        children:
+          - id: num-and-ops-factors-and-multiples
+            label: 考点一 因数和倍数
+          - id: num-and-ops-parity
+            label: 考点二 奇数和偶数
+          - id: num-and-ops-primes
+            label: 考点三 质数、合数和分解质因数
+      - id: num-and-ops-rationals
+        label: 第三节 小数、分数和百分数
+        children:
+          - id: num-and-ops-decimals
+            label: 考点一 小数的认识
+          - id: num-and-ops-fractions
+            label: 考点二 分数的认识
+          - id: num-and-ops-percents
+            label: 考点三 百分数的认识
+          - id: num-and-ops-rational-conversion
+            label: 考点四 小数、分数、百分数之间的互化
+          - id: num-and-ops-reciprocal
+            label: 考点五 倒数
+      - id: num-and-ops-signed
+        label: 第四节 正负数
+      - id: num-and-ops-arithmetic
+        label: 第五节 数的运算
+        children:
+          - id: num-and-ops-arithmetic-meaning
+            label: 考点一 四则运算的意义
+          - id: num-and-ops-arithmetic-rules
+            label: 考点二 运算法则
+          - id: num-and-ops-arithmetic-estimation
+            label: 考点三 估算
+          - id: num-and-ops-arithmetic-order
+            label: 考点四 运算顺序
+          - id: num-and-ops-arithmetic-laws
+            label: 考点五 运算律及性质
+          - id: num-and-ops-arithmetic-change
+            label: 考点六 和、差、积、商的变化规律
+          - id: num-and-ops-arithmetic-zero-one
+            label: 考点七 有关 "0" 和 "1" 的运算
+          - id: num-and-ops-arithmetic-shortcuts
+            label: 考点八 小学数学中常用的速算方法
+          - id: num-and-ops-arithmetic-defined
+            label: 考点九 定义新运算
+
+  - id: algebra-expressions
+    label: 专题二 式与方程
+    children:
+      - id: algebra-letter
+        label: 第一节 用字母表示数
+        children:
+          - id: algebra-letter-purpose
+            label: 考点一 用字母表示数的作用
+          - id: algebra-letter-requirements
+            label: 考点二 用字母表示数的要求
+          - id: algebra-letter-quantities
+            label: 考点三 常见数量关系
+          - id: algebra-letter-laws
+            label: 考点四 用字母表示常见的运算定律和运算性质
+          - id: algebra-letter-formulas
+            label: 考点五 用字母表示公式
+          - id: algebra-letter-evaluation
+            label: 考点六 用含字母的式子求值
+      - id: algebra-equations
+        label: 第二节 简易方程
+        children:
+          - id: algebra-equations-equals
+            label: 考点一 等式与方程
+          - id: algebra-equations-solve
+            label: 考点二 解方程
+          - id: algebra-equations-modeling
+            label: 考点三 列方程解决实际问题
+
+  - id: measurements
+    label: 专题三 常见的量
+    children:
+      - id: measurements-units
+        label: 考点一 常见的计量单位及换算关系
+      - id: measurements-renaming
+        label: 考点二 名数的改写
+      - id: measurements-word-problems
+        label: 考点三 常见的实际问题
+
+  - id: ratio-and-proportion
+    label: 专题四 比和比例
+    children:
+      - id: ratio-intro
+        label: 考点一 比的认识
+      - id: proportion-intro
+        label: 考点二 比例的认识
+      - id: direct-and-inverse
+        label: 考点三 正比例和反比例
+      - id: scale
+        label: 考点四 比例尺
+      - id: proportional-allocation
+        label: 考点五 按比例分配
+
+  # Geometry — the project's primary DeepTutor focus. We keep all
+  # sub-areas so that geometry-heavy exports cover shapes, motion, and
+  # position in one coherent document group.
+  - id: geometry
+    label: 专题五 图形与几何
+    description: 平面图形 / 立体图形 / 图形与运动 / 图形与位置。
+    children:
+      - id: geometry-plane
+        label: 第一节 平面图形的认识
+        description: 线、角、三角形、四边形、圆、扇形、综合。
+        children:
+          - id: geometry-plane-lines
+            label: 考点一 线
+          - id: geometry-plane-angles
+            label: 考点二 角
+          - id: geometry-plane-triangles
+            label: 考点三 三角形的认识
+          - id: geometry-plane-quads
+            label: 考点四 四边形的认识
+          - id: geometry-plane-circles
+            label: 考点五 圆的认识
+          - id: geometry-plane-sectors
+            label: 考点六 扇形的认识
+          - id: geometry-plane-mixed
+            label: 考点七 平面图形的认识
+      - id: geometry-solid
+        label: 第二节 立体图形的认识
+        children:
+          - id: geometry-solid-cuboid
+            label: 考点一 长方体的认识
+          - id: geometry-solid-cube
+            label: 考点二 正方体的认识
+          - id: geometry-solid-cylinder
+            label: 考点三 圆柱的认识
+          - id: geometry-solid-cone
+            label: 考点四 圆锥的认识
+          - id: geometry-solid-sphere
+            label: 考点五 球
+          - id: geometry-solid-irregular
+            label: 考点六 形状不规则物体的体积
+          - id: geometry-solid-surface-volume
+            label: 考点七 立体图形的表面积和体积
+          - id: geometry-solid-viewing
+            label: 考点八 观察物体
+          - id: geometry-solid-unfolding
+            label: 考点九 立体图形展开图的判断方法
+      - id: geometry-motion
+        label: 第三节 图形与运动
+        children:
+          - id: geometry-motion-translation
+            label: 考点一 平移
+          - id: geometry-motion-rotation
+            label: 考点二 旋转
+          - id: geometry-motion-reflection
+            label: 考点三 轴对称
+          - id: geometry-motion-scaling
+            label: 考点四 图形的缩放
+      - id: geometry-position
+        label: 第四节 图形与位置
+        children:
+          - id: geometry-position-direction
+            label: 考点一 方向
+          - id: geometry-position-locating
+            label: 考点二 确定位置的方法
+          - id: geometry-position-routes
+            label: 考点三 使用路线图
+
+  - id: statistics-and-probability
+    label: 专题六 统计与概率
+    children:
+      - id: statistics
+        label: 第一节 统计
+        children:
+          - id: statistics-tables
+            label: 考点一 统计表
+          - id: statistics-charts
+            label: 考点二 统计图
+          - id: statistics-center
+            label: 考点三 统计量：平均数、中位数和众数
+      - id: probability
+        label: 第二节 可能性
+        children:
+          - id: probability-events
+            label: 考点一 确定事件和不确定事件
+          - id: probability-likelihood
+            label: 考点二 可能性
+          - id: probability-fairness
+            label: 考点三 游戏规则的公平性
+
+  - id: comprehensive
+    label: 专题七 综合与实践应用
+    description: 教材原 8 节向上合并为 4 大块:探索规律、应用题、典型问题、解决策略。
+    children:
+      - id: comprehensive-explore
+        label: 探索规律
+        children:
+          - id: comprehensive-explore-meaning
+            label: 探索规律的意义
+          - id: comprehensive-explore-sequences
+            label: 数列中的规律
+          - id: comprehensive-explore-expressions
+            label: 算式中的规律
+          - id: comprehensive-explore-figures
+            label: 图形中的规律
+          - id: comprehensive-explore-periodic
+            label: 周期中的规律
+          - id: comprehensive-explore-combinations
+            label: 搭配中的规律
+          - id: comprehensive-explore-phalanx
+            label: 方阵中的规律
+          - id: comprehensive-explore-intervals
+            label: 间隔中的规律
+      - id: comprehensive-word
+        label: 应用题
+        children:
+          - id: comprehensive-word-basic
+            label: 一般应用题
+            children:
+              - id: comprehensive-word-basic-simple
+                label: 简单应用题
+              - id: comprehensive-word-basic-compound
+                label: 一般复合应用题
+          - id: comprehensive-word-fraction-percent
+            label: 分数、百分数应用题
+            children:
+              - id: comprehensive-word-fraction-percent-steps
+                label: 分数、百分数问题的解题步骤
+              - id: comprehensive-word-fraction-percent-fraction
+                label: 分数应用题
+              - id: comprehensive-word-fraction-percent-life
+                label: 生活中的百分数问题
+          - id: comprehensive-word-ratio
+            label: 比和比例的应用题
+            children:
+              - id: comprehensive-word-ratio-ratio
+                label: 有关比的应用题
+              - id: comprehensive-word-ratio-scale
+                label: 比例尺的应用
+              - id: comprehensive-word-ratio-allocation
+                label: 按比例分配的问题
+              - id: comprehensive-word-ratio-direct-inverse
+                label: 应用题中关于正、反比例的问题
+          - id: comprehensive-word-equation
+            label: 列方程解应用题
+            children:
+              - id: comprehensive-word-equation-meaning
+                label: 列方程解应用题的意义
+              - id: comprehensive-word-equation-relations
+                label: 找等量关系式的方法
+              - id: comprehensive-word-equation-solving
+                label: 利用方程式解答应用题
+              - id: comprehensive-word-equation-vs-arithmetic
+                label: 方程式解题和一般算术的差别
+      - id: comprehensive-typical
+        label: 典型实际问题
+        children:
+          - id: comprehensive-typical-1
+            label: 典型实际问题（一）
+            children:
+              - id: typical-average
+                label: 平均数问题
+              - id: typical-travel
+                label: 行程问题
+              - id: typical-planting
+                label: 植树问题
+              - id: typical-sum-diff-multiple
+                label: 和倍、差倍、和差问题
+              - id: typical-tiered-pricing
+                label: 分段计费问题
+              - id: typical-unit
+                label: 归一、归总问题
+              - id: typical-chickens-rabbits
+                label: 鸡兔同笼问题
+              - id: typical-stream
+                label: 流水问题
+              - id: typical-surplus-deficit
+                label: 盈亏问题
+              - id: typical-age
+                label: 年龄问题
+              - id: typical-reverse
+                label: 还原问题
+              - id: typical-digit
+                label: 数码问题
+          - id: comprehensive-typical-2
+            label: 典型实际问题（二）
+            children:
+              - id: typical-permutation
+                label: 简单的排列、组合问题
+              - id: typical-logic
+                label: 简单的逻辑性推理问题
+              - id: typical-optimization
+                label: 常见的优化问题
+              - id: typical-inclusion-exclusion
+                label: 包含与排除问题
+              - id: typical-pigeonhole
+                label: 抽屉原理
+              - id: typical-time
+                label: 时间问题
+      - id: comprehensive-strategies
+        label: 解决策略
+        children:
+          - id: strategy-table
+            label: 列表的策略
+          - id: strategy-enumeration
+            label: 列举的策略
+          - id: strategy-drawing
+            label: 画图的策略
+          - id: strategy-substitution
+            label: 替换的策略
+          - id: strategy-transformation
+            label: 转化法
+          - id: strategy-assumption
+            label: 假设法
+          - id: strategy-inverse
+            label: 正难则反法
+
+# Vocabulary. Only the leaf topics that are most likely to surface in
+# extracted items get explicit keyword lists. Interior topics still get
+# matches via descendant keywords (the matcher walks the tree).
+# Keep keywords lowercase ASCII where possible; Chinese substrings
+# remain as-is. Patterns are matched as regular expressions against
+# the searchable text.
+vocabulary:
+  # --- 专题一 数与运算 ---
+  num-and-ops-integers-classify:
+    keywords: ["整数", "自然数", "正整数", "负整数", "零"]
+  num-and-ops-integers-read-write:
+    keywords: ["读数", "写数", "改写", "数位", "位数", "万级", "亿级"]
+  num-and-ops-integers-compare:
+    keywords: ["比较大小", "位数不同", "位数相同", "从高位"]
+  num-and-ops-factors-and-multiples:
+    keywords: ["因数", "倍数", "公因数", "公倍数"]
+    patterns: ["因数与倍数", "倍数与因数"]
+  num-and-ops-parity:
+    keywords: ["奇数", "偶数", "单数", "双数"]
+  num-and-ops-primes:
+    keywords: ["质数", "素数", "合数", "分解质因数", "质因数"]
+  num-and-ops-decimals:
+    keywords: ["小数", "小数点", "小数部分", "整数部分", "纯小数", "带小数"]
+  num-and-ops-fractions:
+    keywords: ["分数", "分母", "分子", "分数线", "真分数", "假分数", "带分数"]
+  num-and-ops-percents:
+    keywords: ["百分数", "百分比", "百分号", "百分率"]
+  num-and-ops-rational-conversion:
+    keywords: ["互化", "小数化分数", "分数化小数", "百分数化分数", "分数化百分数"]
+    patterns: ["小数\\s*[、，,]\\s*分数\\s*[、，,]\\s*百分数"]
+  num-and-ops-reciprocal:
+    keywords: ["倒数", "乘积为1"]
+  num-and-ops-signed:
+    keywords: ["正数", "负数", "正负数", "相反数"]
+  num-and-ops-arithmetic-meaning:
+    keywords: ["加法", "减法", "乘法", "除法", "四则运算", "运算的意义"]
+  num-and-ops-arithmetic-rules:
+    keywords: ["运算法则", "进位", "退位", "小数加减", "小数乘法", "分数加减", "分数乘法"]
+  num-and-ops-arithmetic-estimation:
+    keywords: ["估算", "大约", "取近似"]
+  num-and-ops-arithmetic-order:
+    keywords: ["运算顺序", "先算", "括号", "同级运算"]
+  num-and-ops-arithmetic-laws:
+    keywords: ["加法交换律", "加法结合律", "乘法交换律", "乘法结合律", "乘法分配律", "运算律", "运算性质"]
+  num-and-ops-arithmetic-change:
+    keywords: ["和的变化", "差的变化", "积的变化", "商的变化", "变化规律"]
+  num-and-ops-arithmetic-zero-one:
+    keywords: ["任何数和0相", "1乘", "0除", "0加", "0减"]
+  num-and-ops-arithmetic-shortcuts:
+    keywords: ["速算", "凑整", "拆分", "凑十法", "破十法", "借十法", "凑百法"]
+  num-and-ops-arithmetic-defined:
+    keywords: ["定义新运算", "新运算", "符号运算"]
+    patterns: ["[a*]+\\s*[▲◎☆★]"]
+
+  # --- 专题二 式与方程 ---
+  algebra-letter-purpose:
+    keywords: ["用字母表示数", "字母表示", "字母的作用"]
+  algebra-letter-requirements:
+    keywords: ["数字与字母相乘", "省略乘号", "字母与字母相乘"]
+  algebra-letter-quantities:
+    keywords: ["路程", "速度", "时间", "工作效率", "总价", "数量", "常见数量关系"]
+    patterns: ["工作\\s*效率", "总\\s*价\\s*=\\s*单价"]
+  algebra-letter-laws:
+    keywords: ["用字母表示运算定律", "用字母表示运算性质"]
+  algebra-letter-formulas:
+    keywords: ["公式", "面积公式", "周长公式", "体积公式"]
+  algebra-letter-evaluation:
+    keywords: ["求值", "代入", "字母取值"]
+  algebra-equations-equals:
+    keywords: ["等式", "方程", "方程的解"]
+  algebra-equations-solve:
+    keywords: ["解方程", "方程两边", "未知数"]
+  algebra-equations-modeling:
+    keywords: ["列方程", "实际问题", "设未知数"]
+
+  # --- 专题三 常见的量 ---
+  measurements-units:
+    keywords: ["长度单位", "面积单位", "体积单位", "质量单位", "时间单位", "人民币", "换算", "进率"]
+    patterns: ["1千米\\s*=\\s*1000米"]
+  measurements-renaming:
+    keywords: ["名数", "改写", "单位换算", "单名数", "复名数"]
+  measurements-word-problems:
+    keywords: ["计量单位的实际问题", "时间问题", "质量实际问题"]
+
+  # --- 专题四 比和比例 ---
+  ratio-intro:
+    keywords: ["比", "比的意义", "比值", "前项", "后项", "化简比"]
+  proportion-intro:
+    keywords: ["比例", "比例的意义", "比例的项", "比例的基本性质", "解比例"]
+  direct-and-inverse:
+    keywords: ["正比例", "反比例", "相关联的量", "比值一定", "积一定"]
+  scale:
+    keywords: ["比例尺", "图上距离", "实际距离", "数值比例尺", "线段比例尺"]
+    patterns: ["图上\\s*距离\\s*[：:]\\s*实际\\s*距离"]
+  proportional-allocation:
+    keywords: ["按比例分配", "分配问题", "总份数"]
+
+  # --- 专题五 图形与几何 (核心) ---
+  geometry-plane-lines:
+    keywords: ["线段", "直线", "射线", "平行线", "垂线", "垂直", "平行", "相交"]
+  geometry-plane-angles:
+    keywords: ["角", "锐角", "钝角", "直角", "平角", "周角", "角的度量"]
+  geometry-plane-triangles:
+    keywords: ["三角形", "锐角三角形", "直角三角形", "钝角三角形", "等腰三角形", "等边三角形", "三角形的高", "三角形的中线", "三角形的角平分线", "三角形的三边关系", "三角形的内角和"]
+    patterns: ["三角形\\s*的三边关系", "三角形\\s*的内角和"]
+  geometry-plane-quads:
+    keywords: ["四边形", "长方形", "正方形", "平行四边形", "梯形", "周长", "面积", "对边", "对角"]
+  geometry-plane-circles:
+    keywords: ["圆", "圆心", "半径", "直径", "圆周率", "圆的周长", "圆的面积"]
+    patterns: ["π\\s*=\\s*3\\.14", "C\\s*=\\s*2πr"]
+  geometry-plane-sectors:
+    keywords: ["扇形", "弧", "圆心角", "扇形的面积"]
+  geometry-plane-mixed:
+    keywords: ["平面图形", "图形拼组", "组合图形", "不规则图形面积"]
+  geometry-solid-cuboid:
+    keywords: ["长方体", "长", "宽", "高", "棱", "顶点", "长方体的表面积", "长方体的体积"]
+  geometry-solid-cube:
+    keywords: ["正方体", "正方体的表面积", "正方体的体积", "棱长"]
+  geometry-solid-cylinder:
+    keywords: ["圆柱", "圆柱的表面积", "圆柱的体积", "底面", "侧面"]
+  geometry-solid-cone:
+    keywords: ["圆锥", "圆锥的体积", "底面积", "高"]
+  geometry-solid-sphere:
+    keywords: ["球", "球的表面", "球面"]
+  geometry-solid-irregular:
+    keywords: ["不规则物体", "排水法", "溢水法"]
+  geometry-solid-surface-volume:
+    keywords: ["表面积", "体积", "容积"]
+  geometry-solid-viewing:
+    keywords: ["观察物体", "三视图", "正面", "侧面", "上面"]
+  geometry-solid-unfolding:
+    keywords: ["展开图", "正方体展开图", "长方体展开图", "圆柱展开图", "圆锥展开图"]
+  geometry-motion-translation:
+    keywords: ["平移", "平移方向", "平移距离"]
+  geometry-motion-rotation:
+    keywords: ["旋转", "旋转中心", "旋转方向", "旋转角度"]
+  geometry-motion-reflection:
+    keywords: ["轴对称", "对称轴", "对称图形", "镜面对称", "翻折"]
+  geometry-motion-scaling:
+    keywords: ["图形的缩放", "放大", "缩小", "比例"]
+  geometry-position-direction:
+    keywords: ["方向", "东", "南", "西", "北", "东南", "东北", "西南", "西北"]
+  geometry-position-locating:
+    keywords: ["确定位置", "数对", "坐标", "方向加距离"]
+  geometry-position-routes:
+    keywords: ["路线图", "路线描述", "行走路线"]
+
+  # --- 专题六 统计与概率 ---
+  statistics-tables:
+    keywords: ["统计表", "复式统计表", "单式统计表"]
+  statistics-charts:
+    keywords: ["条形统计图", "折线统计图", "扇形统计图", "复式统计图"]
+  statistics-center:
+    keywords: ["平均数", "中位数", "众数", "统计量"]
+  probability-events:
+    keywords: ["确定事件", "不确定事件", "必然事件", "不可能事件"]
+  probability-likelihood:
+    keywords: ["可能性", "概率", "可能性大小"]
+  probability-fairness:
+    keywords: ["游戏规则", "公平性", "公平", "不公平"]
+
+  # --- 专题七 综合与实践应用 (已合并为 4 大块) ---
+  comprehensive-explore-meaning:
+    keywords: ["探索规律", "找规律"]
+  comprehensive-explore-sequences:
+    keywords: ["数列", "等差数列", "等比数列", "递增", "递减"]
+  comprehensive-explore-expressions:
+    keywords: ["算式规律", "算式中的规律"]
+  comprehensive-explore-figures:
+    keywords: ["图形规律", "图形中的规律", "点阵规律"]
+  comprehensive-explore-periodic:
+    keywords: ["周期", "循环", "周期规律"]
+  comprehensive-explore-combinations:
+    keywords: ["搭配", "排列", "组合"]
+  comprehensive-explore-phalanx:
+    keywords: ["方阵", "外层", "内层", "总人数"]
+  comprehensive-explore-intervals:
+    keywords: ["间隔", "植树问题", "锯木问题", "爬楼问题", "队列问题"]
+
+  comprehensive-word-basic-simple:
+    keywords: ["简单应用题", "一步应用题"]
+  comprehensive-word-basic-compound:
+    keywords: ["一般复合应用题", "两步应用题", "多步应用题"]
+
+  comprehensive-word-fraction-percent-steps:
+    keywords: ["解题步骤", "分数问题步骤", "百分数问题步骤"]
+  comprehensive-word-fraction-percent-fraction:
+    keywords: ["分数应用题", "求一个数的几分之几"]
+  comprehensive-word-fraction-percent-life:
+    keywords: ["百分数问题", "生活中的百分数", "折扣", "纳税", "利率"]
+
+  comprehensive-word-ratio-ratio:
+    keywords: ["有关比的应用题", "化连比"]
+  comprehensive-word-ratio-scale:
+    keywords: ["比例尺的应用", "根据比例尺求实际距离", "根据比例尺求图上距离"]
+  comprehensive-word-ratio-allocation:
+    keywords: ["按比例分配的题目"]
+  comprehensive-word-ratio-direct-inverse:
+    keywords: ["正比例应用题", "反比例应用题"]
+
+  comprehensive-word-equation-meaning:
+    keywords: ["列方程解应用题", "方程解应用题"]
+  comprehensive-word-equation-relations:
+    keywords: ["等量关系", "找等量关系", "数量关系式"]
+  comprehensive-word-equation-solving:
+    keywords: ["方程解答", "设未知数列方程"]
+  comprehensive-word-equation-vs-arithmetic:
+    keywords: ["方程解题", "算术解法", "差别", "比较"]
+
+  # 典型实际问题
+  typical-average:
+    keywords: ["平均数问题", "求平均数", "平均速度", "平均身高"]
+  typical-travel:
+    keywords: ["行程问题", "相遇问题", "追及问题", "相向而行", "同向而行", "背向而行"]
+    patterns: ["速度\\s*[×x]\\s*时间\\s*=\\s*路程"]
+  typical-planting:
+    keywords: ["植树问题", "两端都种", "只种一端", "两端不种", "圆形植树"]
+  typical-sum-diff-multiple:
+    keywords: ["和倍问题", "差倍问题", "和差问题"]
+  typical-tiered-pricing:
+    keywords: ["分段计费", "阶梯价格", "水费", "电费", "出租车计费"]
+  typical-unit:
+    keywords: ["归一问题", "归总问题"]
+  typical-chickens-rabbits:
+    keywords: ["鸡兔同笼", "鸡兔同笼问题"]
+    # Veto when the section is a geometry-heavy summary that just
+    # happens to drop a single 杂题. The problem-only keywords
+    # (``笼中有``, ``足``, ``各几何`` etc.) are deliberately *not*
+    # in this list so genuine chickens-rabbits problems still match.
+    negative_keywords: ["三角形", "全等", "判定", "直角", "SAS", "ASA", "SSS", "HL"]
+  typical-stream:
+    keywords: ["流水问题", "顺水速度", "逆水速度", "静水速度"]
+  typical-surplus-deficit:
+    keywords: ["盈亏问题", "分配中的盈亏"]
+  typical-age:
+    keywords: ["年龄问题", "年龄差不变"]
+  typical-reverse:
+    keywords: ["还原问题", "逆推", "倒推法"]
+  typical-digit:
+    keywords: ["数码问题", "数字问题", "数位问题"]
+
+  typical-permutation:
+    keywords: ["排列问题", "组合问题", "简单的排列", "简单的组合"]
+  typical-logic:
+    keywords: ["逻辑推理", "推理问题"]
+  typical-optimization:
+    keywords: ["优化问题", "最优方案", "省钱方案", "烙饼问题", "沏茶问题", "等候时间"]
+  typical-inclusion-exclusion:
+    keywords: ["包含与排除", "容斥原理", "重叠问题"]
+  typical-pigeonhole:
+    keywords: ["抽屉原理", "鸽巢原理"]
+  typical-time:
+    keywords: ["时间问题", "24时计时法", "经过时间"]
+
+  strategy-table:
+    keywords: ["列表的策略", "列表法", "列表整理"]
+  strategy-enumeration:
+    keywords: ["列举的策略", "枚举法", "一一列举"]
+  strategy-drawing:
+    keywords: ["画图的策略", "画图分析", "线段图"]
+  strategy-substitution:
+    keywords: ["替换的策略", "等量替换"]
+  strategy-transformation:
+    keywords: ["转化法", "转化策略"]
+  strategy-assumption:
+    keywords: ["假设法", "假设策略"]
+  strategy-inverse:
+    keywords: ["正难则反", "反推法", "逆向思考"]
+
+# Reorganization mode. Default B = reorder within cluster, no
+# generative rewriting. The four top-level 专题七 blocks keep A so the
+# original ordering of worked examples is preserved.
+strategy:
+  default: B
+  overrides:
+    # Preserve original order of worked examples for the four merged
+    # 综合与实践应用 top-level blocks.
+    comprehensive-explore: A
+    comprehensive-word: A
+    comprehensive-typical: A
+    comprehensive-strategies: A

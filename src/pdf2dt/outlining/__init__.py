@@ -25,7 +25,7 @@ from .matcher import (
     TopicAssignment,
     match_project,
 )
-from .outline import Outline, OutlineLoadError, OutlineLoader, Topic, VocabularyEntry
+from .outline import Outline, OutlineLoader, OutlineLoadError, Topic, VocabularyEntry
 
 __all__ = [
     "Item",

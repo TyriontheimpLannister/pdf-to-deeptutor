@@ -1,4 +1,4 @@
-﻿"""Tests for Stage 2 asset localization using the synthetic fixture."""
+"""Tests for Stage 2 asset localization using the synthetic fixture."""
 
 from __future__ import annotations
 
@@ -8,14 +8,13 @@ import pytest
 
 from pdf2dt.assets import (
     AssetLocalizer,
-    AssetValidationError,
     LocalMirrorDownloader,
     localize_loaded_task,
 )
 from pdf2dt.inbox import load_inbox_task
 
-FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "demos" / "inbox-sample"
-TASK_DIR = FIXTURE_ROOT / "sample-chapter-01"
+FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "demos/inbox-sample"
+TASK_DIR = FIXTURE_ROOT / "g8-triangle-ch03"
 MIRROR_DIR = TASK_DIR / "images"
 
 
@@ -65,21 +64,35 @@ class TestHappyPath:
 
 
 class TestDedup:
-    def test_same_content_under_different_url_dedups(self, loaded_task, mirror, assets_dir: Path) -> None:
-        # Inject a duplicate URL that points at an existing fixture image.
-        loaded_task.image_references.append(
-            "https://mineru.example/tmp/img_p001_001.png"
-        )
-        localizer = AssetLocalizer(assets_dir, mirror)
+    def test_same_content_under_different_urls_dedups_and_rewrites_each_url(
+        self, loaded_task, assets_dir: Path
+    ) -> None:
+        from pdf2dt.assets.models import DownloadResult, DownloadStatus
+
+        first_url = "https://mineru.example/tmp/img_p001_001.png"
+        duplicate_url = "https://mineru.example/tmp/copied-figure.png"
+        image_bytes = (MIRROR_DIR / "img_p001_001.png").read_bytes()
+
+        class DuplicateContentDownloader:
+            def download(self, url: str) -> DownloadResult:
+                return DownloadResult(
+                    url=url,
+                    status=DownloadStatus.OK,
+                    content=image_bytes,
+                    content_type="image/png",
+                )
+
+        loaded_task.image_references = [first_url, duplicate_url]
+        localizer = AssetLocalizer(assets_dir, DuplicateContentDownloader())
         registry = localizer.localize(loaded_task)
 
-        # Still 4 unique assets despite 5 URLs
-        assert len(registry) == 4
-        a = registry.by_url["https://mineru.example/tmp/img_p001_001.png"]
-        b = registry.by_url["https://mineru.example/tmp/img_p001_001.png"]
-        # Both URLs map to the same id (because the URL is identical here)
-        # — but the dedup test is that we don't have an extra file on disk.
-        assert a == b
+        assert len(registry) == 1
+        assert registry.by_url[first_url] == registry.by_url[duplicate_url]
+        rewritten = localizer.rewrite_markdown(
+            f"![first]({first_url})\n![duplicate]({duplicate_url})", registry
+        )
+        assert "https://mineru.example/tmp/" not in rewritten
+        assert rewritten.count("assets/") == 2
 
 
 class TestRewrite:
@@ -105,11 +118,60 @@ class TestRewrite:
                     assert block["image_url"].startswith("assets/")
                     assert "asset_id" in block
 
+    def test_layout_json_rewrites_relative_paths(
+        self, loaded_task, mirror, assets_dir: Path
+    ) -> None:
+        """Regression: layout.json may contain relative image paths like
+        ``images/foo.png`` while the registry stores the resolved ``file://``
+        URL.  rewrite_layout must still match them via tail-filename fallback.
+        """
+        localizer = AssetLocalizer(assets_dir, mirror)
+        registry = localizer.localize(loaded_task)
+
+        # Simulate a layout that uses relative paths (MinerU-style).
+        layout_with_relative = {
+            "pages": [
+                {
+                    "blocks": [
+                        {"image_url": "images/img_p001_001.png"},
+                    ]
+                }
+            ]
+        }
+        rewritten = localizer.rewrite_layout(layout_with_relative, registry)
+
+        block = rewritten["pages"][0]["blocks"][0]
+        assert block["image_url"].startswith("assets/")
+        assert "asset_id" in block
+
+    def test_ambiguous_filename_fallback_does_not_rewrite(
+        self, loaded_task, mirror, assets_dir: Path
+    ) -> None:
+        """Same-name assets must not be selected by registry insertion order."""
+        localizer = AssetLocalizer(assets_dir, mirror)
+        registry = localizer.localize(loaded_task)
+        asset = next(iter(registry.by_id.values()))
+        registry.add_alias("images/a/duplicate.png", asset)
+
+        second_asset = list(registry.by_id.values())[1]
+        registry.add_alias("images/b/duplicate.png", second_asset)
+        exact = localizer.rewrite_layout(
+            {"pages": [{"blocks": [{"image_url": "images/b/duplicate.png"}]}]},
+            registry,
+        )
+        assert exact["pages"][0]["blocks"][0]["asset_id"] == second_asset.asset_id
+
+        rewritten = localizer.rewrite_layout(
+            {"pages": [{"blocks": [{"image_url": "duplicate.png"}]}]}, registry
+        )
+
+        assert rewritten["pages"][0]["blocks"][0]["image_url"] == "duplicate.png"
+
     def test_unmatched_url_left_alone(self, loaded_task, mirror, assets_dir: Path) -> None:
         localizer = AssetLocalizer(assets_dir, mirror)
         registry = localizer.localize(loaded_task)
         md_with_unknown = loaded_task.markdown_text.replace(
-            "![示意图 A](https://mineru.example/tmp/img_p001_001.png)",
+            "![三角形 ABC](https://mineru.example/tmp/img_p001_001.png)",
             "![示例](https://other.example/foo.png)",
         )
         rewritten = localizer.rewrite_markdown(md_with_unknown, registry)
@@ -143,7 +205,13 @@ class TestFailureModes:
         from pdf2dt.assets.localizer import AssetLocalizer
         localizer = AssetLocalizer(tmp_path / "assets", TextDownloader())
 
-        from pdf2dt.inbox.models import InboxTask, MetaJson, MinerUProducts, MinerUExportInfo, MinerUSourceInfo
+        from pdf2dt.inbox.models import (
+            InboxTask,
+            MetaJson,
+            MinerUExportInfo,
+            MinerUProducts,
+            MinerUSourceInfo,
+        )
         task = InboxTask(
             task_dir=tmp_path,
             meta=MetaJson(

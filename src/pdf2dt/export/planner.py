@@ -32,19 +32,21 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from ..outlining import OutlineLoader
+from ..outlining import Outline, OutlineLoader
 from ..project import ProjectWorkspace, StageStatus, record_stage
 from .bridges import (
+    DEFAULT_BRIDGE_PROVIDER,
     Bridge,
     BridgeContext,
     BridgeProvider,
-    DEFAULT_BRIDGE_PROVIDER,
+    BridgeProviderContext,
+    PlanAccessor,
     resolve_bridge_provider,
 )
 
@@ -147,7 +149,7 @@ class ExportPlan:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ExportPlan":
+    def from_dict(cls, data: dict[str, Any]) -> ExportPlan:
         bridges_raw = data.get("bridges") or []
         bridges = [
             Bridge(
@@ -205,14 +207,20 @@ class ExportPlanner:
         book_view: dict[str, Any],
         *,
         mode: ReorgMode = ReorgMode.B,
+        force_mode: bool = False,
         project_id: str = "book",
+        outline: Outline | None = None,
         outline_provenance: dict[str, Any] | None = None,
         bridge_provider: BridgeProvider | str | None = None,
+        review_dir: Path | None = None,
     ) -> None:
         self._book = book_view
         self._mode = mode
+        self._force_mode = force_mode
         self._project_id = project_id
+        self._outline_model = outline
         self._outline = outline_provenance
+        self._review_dir = Path(review_dir) if review_dir is not None else None
         # Resolve the provider eagerly so a misconfigured name
         # fails loudly at construction time rather than mid-plan().
         if bridge_provider is None or isinstance(bridge_provider, BridgeProvider):
@@ -245,12 +253,14 @@ class ExportPlanner:
         plans: list[ExportPlan] = []
         topic_order = sorted(by_topic.keys())
         for seq, tid in enumerate(topic_order, start=1):
-            plan_items = _sort_items(by_topic[tid], self._mode)
+            plan_mode = self._effective_mode(tid)
+            plan_items = _sort_items(by_topic[tid], plan_mode)
             plan = self._build_plan(
                 topic_id=tid,
                 items=plan_items,
                 sequence=seq,
                 is_misc=False,
+                mode=plan_mode,
             )
             plans.append(plan)
 
@@ -258,9 +268,10 @@ class ExportPlanner:
             plans.append(
                 self._build_plan(
                     topic_id=self.MISC_TOPIC,
-                    items=_sort_items(misc_items, self._mode),
+                    items=_sort_items(misc_items, self._effective_mode(self.MISC_TOPIC)),
                     sequence=len(plans) + 1,
                     is_misc=True,
+                    mode=self._effective_mode(self.MISC_TOPIC),
                 )
             )
 
@@ -273,14 +284,13 @@ class ExportPlanner:
                     items=_sort_items(items, ReorgMode.A),
                     sequence=1,
                     is_misc=False,
+                    mode=self._mode,
                 )
             )
 
-        # Mode C: ask the bridge provider to write a transition
-        # between every adjacent pair of plans. Failures or `None`
-        # returns are non-fatal; we just skip insertion for that
-        # pair so Mode C keeps degrading gracefully into Mode B.
-        if self._mode == ReorgMode.C and len(plans) > 1:
+        # A Mode-C plan asks for a transition from its immediate
+        # predecessor. Failures or `None` returns are non-fatal.
+        if len(plans) > 1:
             self._attach_bridges(plans)
 
         return ExportPlanCollection(
@@ -291,14 +301,26 @@ class ExportPlanner:
             plans=plans,
         )
 
-    def _attach_bridges(self, plans: list["ExportPlan"]) -> None:
+    def _attach_bridges(self, plans: list[ExportPlan]) -> None:
         """For every (i, i+1) pair, ask the bridge provider to
         produce a transition paragraph and append it to ``plans[i+1]``.
 
         ``plans[0]`` is intentionally *not* bridged — it is the
         opening of the collection and has no predecessor.
         """
-        for prev, curr in zip(plans, plans[1:]):
+        # Build a one-time accessor view of every plan so providers
+        # that need item-level data (asset_ids, items) can look it up
+        # without re-walking the whole plan list. The accessors are
+        # plain dicts / tuples so a provider never imports the
+        # planner module.
+        plans_by_id: dict[str, PlanAccessor] = {
+            plan.plan_id: self._plan_accessor(plan) for plan in plans
+        }
+        self._invoke_attach(plans_by_id)
+
+        for prev, curr in zip(plans, plans[1:], strict=False):
+            if curr.mode != ReorgMode.C:
+                continue
             context = BridgeContext(
                 follows_plan_id=prev.plan_id,
                 follows_topic_id=prev.topic_id,
@@ -331,6 +353,51 @@ class ExportPlanner:
             if bridge is not None:
                 curr.bridges.append(bridge)
 
+    def _invoke_attach(self, plans_by_id: dict[str, PlanAccessor]) -> None:
+        """Call the provider's :meth:`attach_context` once per plan run.
+
+        Failures here are non-fatal: a provider that fails to load
+        its context falls back to the ``mock`` provider for the
+        remaining bridges. This keeps export planning available
+        even when geometry / outline files are temporarily
+        unreadable.
+        """
+        try:
+            self._bridge_provider.attach_context(
+                BridgeProviderContext(
+                    plans_by_id=plans_by_id,
+                    review_dir=self._review_dir,
+                    outline=self._outline_model,
+                )
+            )
+        except Exception as exc:  # noqa: BLE001 - policy: bridges fail-soft
+            self._bridge_provider = DEFAULT_BRIDGE_PROVIDER
+            self._bridge_provider.attach_context(
+                BridgeProviderContext(
+                    plans_by_id=plans_by_id,
+                    review_dir=self._review_dir,
+                    outline=self._outline_model,
+                )
+            )
+            self._attach_error = f"{type(exc).__name__}: {exc}"  # type: ignore[attr-defined]
+
+    @staticmethod
+    def _plan_accessor(plan: ExportPlan) -> PlanAccessor:
+        asset_ids: list[str] = []
+        for item in plan.items:
+            for asset in item.get("asset_refs") or []:
+                aid = asset.get("asset_id")
+                if aid and aid not in asset_ids:
+                    asset_ids.append(aid)
+        return PlanAccessor(
+            plan_id=plan.plan_id,
+            topic_id=plan.topic_id,
+            title=plan.title,
+            item_count=len(plan.items),
+            asset_ids=tuple(asset_ids),
+            items=tuple(plan.items),
+        )
+
     # ------------------------------------------------------------------ #
     # Internals
     # ------------------------------------------------------------------ #
@@ -350,6 +417,7 @@ class ExportPlanner:
         items: list[dict[str, Any]],
         sequence: int,
         is_misc: bool,
+        mode: ReorgMode,
     ) -> ExportPlan:
         figure_ids: list[str] = []
         seen: set[str] = set()
@@ -367,7 +435,7 @@ class ExportPlanner:
             plan_id=plan_id,
             topic_id=topic_id,
             title=title,
-            mode=self._mode,
+            mode=mode,
             items=items,
             figure_ids=figure_ids,
             output_filename=filename,
@@ -375,6 +443,21 @@ class ExportPlanner:
             is_misc_fallback=is_misc,
             unclassified_count=len(items) if is_misc else 0,
         )
+
+    def _effective_mode(self, topic_id: str | None) -> ReorgMode:
+        # An explicit CLI A/C request remains a collection-wide override
+        # for compatibility. The default CLI B delegates to the outline's
+        # per-topic strategy, including its default and overrides.
+        # When force_mode is set (e.g. user explicitly passed --mode B),
+        # honour the requested mode for every topic.
+        if (
+            self._force_mode
+            or self._mode != ReorgMode.B
+            or self._outline_model is None
+            or topic_id is None
+        ):
+            return self._mode
+        return ReorgMode(self._outline_model.strategy_for(topic_id))
 
     def _plan_title(self, topic_id: str | None, items: list[dict[str, Any]]) -> str:
         if topic_id is None:
@@ -402,6 +485,7 @@ def plan_exports(
     workspace: ProjectWorkspace,
     *,
     mode: ReorgMode | str = ReorgMode.B,
+    force_mode: bool = False,
     book_view_path: Path | str | None = None,
     outline_path: Path | str | None = None,
     bridge_provider: BridgeProvider | str | None = None,
@@ -409,12 +493,15 @@ def plan_exports(
     """Run Stage 4c and persist the export plan collection."""
     mode_enum = ReorgMode(str(mode)) if not isinstance(mode, ReorgMode) else mode
 
-    bv_path = Path(book_view_path) if book_view_path else (workspace.book_view_dir / "book_view.json")
+    bv_path = (
+        Path(book_view_path) if book_view_path else (workspace.book_view_dir / "book_view.json")
+    )
     if not bv_path.is_file():
         raise PlanError(f"BookView not found: {bv_path}")
     book = json.loads(bv_path.read_text(encoding="utf-8"))
 
     outline_provenance: dict[str, Any] | None = None
+    outline: Outline | None = None
     # When an outline path is supplied, load it through the canonical
     # OutlineLoader so we get the real outline_id, version, and sha256
     # rather than guessing or hard-coding a default. This keeps the
@@ -450,9 +537,12 @@ def plan_exports(
     planner = ExportPlanner(
         book,
         mode=mode_enum,
+        force_mode=force_mode,
         project_id=workspace.root.name,
+        outline=outline,
         outline_provenance=outline_provenance,
         bridge_provider=bridge_provider,
+        review_dir=workspace.review_dir,
     )
     collection = planner.plan()
 

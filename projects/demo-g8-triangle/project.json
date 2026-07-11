@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "project_id": "demo-g8-triangle",
+  "title": "Demo: 八年级全等三角形",
+  "created_at": "2026-07-10T13:41:23+00:00",
+  "updated_at": "2026-07-11T23:16:51+00:00",
+  "subject": {
+    "subject": "math",
+    "stage": "middle-G8"
+  },
+  "source": {
+    "path": null,
+    "sha256": null
+  },
+  "stages": {
+    "stage0_workspace": {
+      "stage": "stage0_workspace",
+      "first_started_at": "2026-07-10T13:41:23+00:00",
+      "status": "completed",
+      "last_updated_at": "2026-07-10T13:41:23+00:00",
+      "input_fingerprint": null,
+      "output_fingerprint": null,
+      "error": null,
+      "metadata": {
+        "project_id": "demo-g8-triangle"
+      }
+    },
+    "stage1_ingest": {
+      "stage": "stage1_ingest",
+      "first_started_at": "2026-07-10T13:41:23+00:00",
+      "status": "completed",
+      "last_updated_at": "2026-07-10T13:41:23+00:00",
+      "input_fingerprint": "2f732c0ca9e55ce0e65580446ac70bb7e14afd02b8701ec44aa35597a662d055",
+      "output_fingerprint": "0bdec1b7a4b37fd3cf6903a5b2823ca1908ebfc92f2a5d6ee3047c0653d2cb7a",
+      "error": null,
+      "metadata": {
+        "task_id": "g8-triangle-ch03-sample",
+        "image_references_count": 4,
+        "layout_included": true
+      }
+    },
+    "stage2_localize": {
+      "stage": "stage2_localize",
+      "first_started_at": "2026-07-10T13:41:23+00:00",
+      "status": "completed",
+      "last_updated_at": "2026-07-10T13:41:23+00:00",
+      "input_fingerprint": null,
+      "output_fingerprint": "c198b79aa74aa986da7c9a5de0e6c8636b94a0ee2c1c02fa34aaf9b7078204f1",
+      "error": null,
+      "metadata": {
+        "assets_localized": 4,
+        "registry_path": "normalized\\assets_registry.json",
+        "rewritten_markdown": "normalized\\full.md",
+        "rewritten_layout": "normalized\\layout.localized.json"
+      }
+    },
+    "stage3_book_view": {
+      "stage": "stage3_book_view",
+      "first_started_at": "2026-07-10T13:41:23+00:00",
+      "status": "completed",
+      "last_updated_at": "2026-07-11T23:16:51+00:00",
+      "input_fingerprint": "3d0411fae3a1ca5602a47374742b394615fdcbf6563075d2e23d6ff969b3da15",
+      "output_fingerprint": "88b2e3cff8d7c0b751aa334e9d45fbb91f33e670cc018ef3c4b549a6cd66a6c1",
+      "error": null,
+      "metadata": {
+        "book_id": "demo-g8-triangle",
+        "chapters": 1,
+        "sections": 6,
+        "items": 20,
+        "asset_refs": 4,
+        "book_view_path": "book_view\\book_view.json",
+        "fingerprints": {
+          "normalized": "3d0411fae3a1ca5602a47374742b394615fdcbf6563075d2e23d6ff969b3da15",
+          "layout": "c8cc7739b26970bb83b304641fb37c3db8b4d3577d5008830da0be50b2af6269",
+          "assets": "c198b79aa74aa986da7c9a5de0e6c8636b94a0ee2c1c02fa34aaf9b7078204f1",
+          "assignments": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    }
+  },
+  "outline_used": null,
+  "exports": []
+}

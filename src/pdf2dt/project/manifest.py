@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from pathlib import Path
 from typing import Any
 
 from .workspace import ProjectWorkspace
@@ -48,6 +47,35 @@ def record_stage(
     manifest["stages"][stage_name] = record
     manifest["updated_at"] = now
     workspace.write_manifest(manifest)
+
+
+def get_stage_status(
+    workspace: ProjectWorkspace, stage_name: str
+) -> StageStatus | None:
+    """Return the recorded status for *stage_name*, or ``None`` if the stage
+    has never been recorded."""
+    if not workspace.exists():
+        return None
+    manifest = workspace.load_manifest()
+    record = manifest.get("stages", {}).get(stage_name)
+    if record is None:
+        return None
+    return StageStatus(record["status"])
+
+
+def is_stage_completed(workspace: ProjectWorkspace, stage_name: str) -> bool:
+    """Return ``True`` if the stage has reached a terminal ``done`` state.
+
+    A stage is considered done when its last recorded status is either
+    ``COMPLETED`` or ``SKIPPED``. ``SKIPPED`` is recorded when the
+    pipeline's resume guard declines to re-run an already-finished
+    stage; treating it as done prevents a re-run guard from flipping
+    the status to ``SKIPPED`` (no-op) and then back to ``not done``
+    (forced re-run) on the next invocation, which used to drop
+    review_state.json and other stage 5/6 audit logs.
+    """
+    status = get_stage_status(workspace, stage_name)
+    return status in (StageStatus.COMPLETED, StageStatus.SKIPPED)
 
 
 def save_manifest(workspace: ProjectWorkspace, manifest: dict[str, Any]) -> None:

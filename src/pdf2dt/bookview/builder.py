@@ -28,10 +28,11 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from ..outlining.items import Item, extract_items
 from ..project import ProjectWorkspace, StageStatus, record_stage
@@ -325,8 +326,12 @@ class BookViewBuilder:
     ) -> BookView:
         ws = self._workspace
         md_path = Path(markdown_path) if markdown_path else (ws.normalized_dir / "full.md")
-        layout_p = Path(layout_path) if layout_path else (ws.normalized_dir / "layout.localized.json")
-        assets_p = Path(assets_path) if assets_path else (ws.normalized_dir / "assets_registry.json")
+        layout_p = (
+            Path(layout_path) if layout_path else (ws.normalized_dir / "layout.localized.json")
+        )
+        assets_p = (
+            Path(assets_path) if assets_path else (ws.normalized_dir / "assets_registry.json")
+        )
         # ``topic_assignments/assignments.json`` lives next to book_view.
         assignments_p = (
             Path(assignments_path)
@@ -687,28 +692,28 @@ class BookViewBuilder:
                 if not stem:
                     continue
                 # Strip a trailing extension if present.
-                if "." in stem:
-                    stem_no_ext = stem.rsplit(".", 1)[0]
-                else:
-                    stem_no_ext = stem
+                stem_no_ext = stem.rsplit(".", 1)[0] if "." in stem else stem
                 best: AssetRef | None = None
-                for k, v in assets_by_id.items():
+                for _k, v in assets_by_id.items():
                     source_url = v.source_url or ""
                     if not source_url:
                         continue
                     # Longest stem that the source URL contains.
-                    if stem and len(stem) >= 16 and stem in source_url:
-                        if best is None or len(v.source_url or "") > len(best.source_url or ""):
-                            best = v
-                    elif stem_no_ext and len(stem_no_ext) >= 16 and stem_no_ext in source_url:
+                    if (stem and len(stem) >= 16 and stem in source_url) or (
+                        stem_no_ext and len(stem_no_ext) >= 16 and stem_no_ext in source_url
+                    ):
                         if best is None or len(v.source_url or "") > len(best.source_url or ""):
                             best = v
                     # Fall back: the registry's local_path basename
                     # (asset_id + .png) appears nowhere in source_url,
                     # so we also accept stem prefix on the asset_id.
-                    elif stem and len(stem) >= 16 and stem.startswith(v.asset_id[: len(stem)]):
-                        if best is None:
-                            best = v
+                    elif (
+                        stem
+                        and len(stem) >= 16
+                        and stem.startswith(v.asset_id[: len(stem)])
+                        and best is None
+                    ):
+                        best = v
                 if best is not None:
                     candidate = best
                     break

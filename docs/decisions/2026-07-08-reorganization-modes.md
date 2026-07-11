@@ -1,4 +1,4 @@
-﻿# Reorganization modes
+# Reorganization modes
 
 ## Decision
 

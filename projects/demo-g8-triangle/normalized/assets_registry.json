@@ -1,0 +1,56 @@
+{
+  "count": 4,
+  "by_url": {
+    "https://mineru.example/tmp/img_p001_001.png": "f938e689e519",
+    "https://mineru.example/tmp/img_p002_001.png": "5eb86244bb1a",
+    "https://mineru.example/tmp/img_p003_001.png": "3f6e410b41e1",
+    "https://mineru.example/tmp/img_p004_001.png": "f9173a101511"
+  },
+  "failures": {},
+  "assets": [
+    {
+      "asset_id": "f938e689e519",
+      "sha256": "f938e689e51965b8167a32e856c1ced45729353244f05f871ba321932a677689",
+      "mime_type": "image/png",
+      "byte_size": 4100,
+      "width": 480,
+      "height": 360,
+      "local_path": "projects\\demo-g8-triangle\\assets\\f938e689e519.png",
+      "source_url": "https://mineru.example/tmp/img_p001_001.png",
+      "source_page": null
+    },
+    {
+      "asset_id": "5eb86244bb1a",
+      "sha256": "5eb86244bb1aa377bcee091a8ee1c908f275fa049eda2dc5884de98f8c7095f4",
+      "mime_type": "image/png",
+      "byte_size": 4237,
+      "width": 480,
+      "height": 360,
+      "local_path": "projects\\demo-g8-triangle\\assets\\5eb86244bb1a.png",
+      "source_url": "https://mineru.example/tmp/img_p002_001.png",
+      "source_page": null
+    },
+    {
+      "asset_id": "3f6e410b41e1",
+      "sha256": "3f6e410b41e1b0d2cb7025dc80abb98958f477df6208d21582a2c904c23c6746",
+      "mime_type": "image/png",
+      "byte_size": 5359,
+      "width": 640,
+      "height": 320,
+      "local_path": "projects\\demo-g8-triangle\\assets\\3f6e410b41e1.png",
+      "source_url": "https://mineru.example/tmp/img_p003_001.png",
+      "source_page": null
+    },
+    {
+      "asset_id": "f9173a101511",
+      "sha256": "f9173a1015114bee697bc1804c5813477515729413a0104b121c24a00425e215",
+      "mime_type": "image/png",
+      "byte_size": 3488,
+      "width": 480,
+      "height": 360,
+      "local_path": "projects\\demo-g8-triangle\\assets\\f9173a101511.png",
+      "source_url": "https://mineru.example/tmp/img_p004_001.png",
+      "source_page": null
+    }
+  ]
+}

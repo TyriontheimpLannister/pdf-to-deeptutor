@@ -6,6 +6,7 @@ import abc
 import time
 from pathlib import Path
 from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 from .models import DownloadResult, DownloadStatus
 
@@ -32,7 +33,7 @@ class HttpxDownloader(AssetDownloader):
         max_retries: int = 3,
         backoff_seconds: float = 0.5,
         max_bytes: int = _MAX_BYTES_DEFAULT,
-        user_agent: str = "pdf-to-deeptutor/0.1",
+        user_agent: str = "math-content-preprocessor/0.1",
     ) -> None:
         import httpx  # local import keeps the dependency optional for tests
 
@@ -165,7 +166,7 @@ class LocalFirstDownloader(AssetDownloader):
     def download(self, url: str) -> DownloadResult:
         parsed = urlparse(url)
         if parsed.scheme == "file":
-            return self._read_file(Path(parsed.path), url)
+            return self._read_file(Path(url2pathname(parsed.path)), url)
         if parsed.scheme in ("http", "https"):
             tail = Path(parsed.path).name
             for root in self._roots:

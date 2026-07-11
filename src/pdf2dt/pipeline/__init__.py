@@ -1,5 +1,17 @@
-"""Pipeline orchestration — runs Stages 1 and 2 against a workspace."""
+"""Pipeline orchestration — runs the full processing pipeline."""
 
-from .runner import PipelineRunner, run_pipeline
+from .runner import (
+    AssetLocalizationError,
+    PipelineResult,
+    PipelineRunner,
+    PreFlightFailureError,
+    run_pipeline,
+)
 
-__all__ = ["PipelineRunner", "run_pipeline"]
+__all__ = [
+    "AssetLocalizationError",
+    "PipelineResult",
+    "PipelineRunner",
+    "PreFlightFailureError",
+    "run_pipeline",
+]

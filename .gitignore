@@ -46,10 +46,9 @@ coverage.xml
 
 # Project-specific: user-private data (NEVER commit real materials)
 inbox/
-outlines/elementary-math-*.yaml
 outlines/*-private.yaml
 outlines/my-*.yaml
-projects/
+projects/*
 !projects/demo-*/
 demos/user-*/
 demos/private/

@@ -13,6 +13,21 @@ Public surface:
 The default reorganization mode is **B**: items are regrouped by topic
 but wording is preserved verbatim (no generative rewriting).
 """
+from .bridges import (
+    DEFAULT_BRIDGE_PROVIDER,
+    Bridge,
+    BridgeContext,
+    BridgeProvider,
+    BridgeProviderContext,
+    GeometryBridgeProvider,
+    MockBridgeProvider,
+    NoOpBridgeProvider,
+    OutlineBridgeProvider,
+    PlanAccessor,
+    known_bridge_providers,
+    register_bridge_provider,
+    resolve_bridge_provider,
+)
 from .planner import (
     ExportPlan,
     ExportPlanCollection,
@@ -22,15 +37,6 @@ from .planner import (
     plan_exports,
 )
 from .renderer import PdfRenderer, render_exports
-from .bridges import (
-    Bridge,
-    BridgeContext,
-    BridgeProvider,
-    DEFAULT_BRIDGE_PROVIDER,
-    known_bridge_providers,
-    register_bridge_provider,
-    resolve_bridge_provider,
-)
 
 __all__ = [
     "ExportPlan",
@@ -42,7 +48,13 @@ __all__ = [
     "Bridge",
     "BridgeContext",
     "BridgeProvider",
+    "BridgeProviderContext",
     "DEFAULT_BRIDGE_PROVIDER",
+    "GeometryBridgeProvider",
+    "MockBridgeProvider",
+    "NoOpBridgeProvider",
+    "OutlineBridgeProvider",
+    "PlanAccessor",
     "plan_exports",
     "render_exports",
     "known_bridge_providers",

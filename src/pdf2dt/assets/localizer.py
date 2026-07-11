@@ -5,8 +5,8 @@ from __future__ import annotations
 import hashlib
 import io
 import re
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from PIL import Image, UnidentifiedImageError
 
@@ -44,10 +44,11 @@ class AssetLocalizer:
             if self._progress:
                 self._progress(url, idx, len(urls))
 
-            asset = self._localize_one(url, registry)
+            asset, error = self._localize_one(url, registry)
             if asset is None:
+                registry.add_failure(url, error or "unknown localization error")
                 continue
-            registry.add(asset)
+            registry.add(asset, source_url=url)
 
         return registry
 
@@ -61,23 +62,10 @@ class AssetLocalizer:
         Markdown references them by relative path).
         """
 
-        def _lookup(url: str) -> Asset | None:
-            asset = registry.get_by_url(url)
-            if asset is not None:
-                return asset
-            tail = url.rsplit("/", 1)[-1]
-            if tail:
-                for a in registry.by_id.values():
-                    if a.local_path.name == tail:
-                        return a
-                    if a.source_url and a.source_url.endswith("/" + tail):
-                        return a
-            return None
-
         def _sub(match: re.Match[str]) -> str:
             alt = match.group(1)
             url = match.group(2).strip()
-            asset = _lookup(url)
+            asset = self._lookup_asset(url, registry)
             if asset is None:
                 return match.group(0)
             return f"![{alt}](assets/{asset.asset_id}.{self._ext(asset)})"
@@ -92,42 +80,65 @@ class AssetLocalizer:
             for block in page.get("blocks", []):
                 url = block.get("image_url")
                 if isinstance(url, str):
-                    asset = registry.get_by_url(url)
+                    asset = self._lookup_asset(url, registry)
                     if asset is not None:
                         block["image_url"] = f"assets/{asset.asset_id}.{self._ext(asset)}"
                         block["asset_id"] = asset.asset_id
         return layout_data
 
+    def _lookup_asset(self, url: str, registry: AssetRegistry) -> Asset | None:
+        """Look up an asset by URL, with an unambiguous filename fallback.
+
+        This covers both full URLs (including ``file://``) and MinerU-style
+        relative paths like ``images/<filename>``.
+        """
+        asset = registry.get_by_url(url)
+        if asset is not None:
+            return asset
+        tail = url.rsplit("/", 1)[-1]
+        if not tail:
+            return None
+        matched_ids = {
+            asset_id
+            for source_url, asset_id in registry.by_url.items()
+            if source_url.rsplit("/", 1)[-1] == tail
+        }
+        if len(matched_ids) != 1:
+            return None
+        return registry.get_by_id(next(iter(matched_ids)))
+
     # ------------------------------------------------------------------ #
     # Internal
     # ------------------------------------------------------------------ #
 
-    def _localize_one(self, url: str, registry: AssetRegistry) -> Asset | None:
+    def _localize_one(
+        self, url: str, registry: AssetRegistry
+    ) -> tuple[Asset | None, str | None]:
         # Already processed this URL? Reuse.
         existing = registry.get_by_url(url)
         if existing is not None:
-            return existing
+            return existing, None
 
         result = self._downloader.download(url)
         if result.status != DownloadStatus.OK or result.content is None:
-            return None
+            return None, result.error or "downloader returned no content"
 
         try:
             asset = self._build_asset(result.content, result.content_type, url)
-        except AssetValidationError:
-            return None
+        except AssetValidationError as exc:
+            return None, str(exc)
 
         # Dedup by content hash: same content under a different URL reuses
         # the existing asset (but we still want the new URL → asset_id map).
         dup = self._find_duplicate(asset.sha256, registry)
         if dup is not None:
-            return dup
+            return dup, None
 
         # Persist the raw bytes we just downloaded. If a previous run already
         # wrote the file, leave it alone (idempotent).
         if not asset.local_path.exists():
             asset.local_path.write_bytes(result.content)
-        return asset
+        return asset, None
 
     def _build_asset(self, content: bytes, content_type: str | None, url: str) -> Asset:
         if not content_type or not content_type.startswith(_VALID_MIME_PREFIXES):

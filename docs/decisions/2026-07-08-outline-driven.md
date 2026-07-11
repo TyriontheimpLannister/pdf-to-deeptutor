@@ -1,4 +1,4 @@
-﻿# Outline-driven export granularity
+# Outline-driven export granularity
 
 ## Decision
 

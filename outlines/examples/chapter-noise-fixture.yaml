@@ -1,0 +1,71 @@
+# chapter-noise-fixture outline (v1.0.0, schema-only demo).
+#
+# A small, focused outline used to demonstrate and verify the
+# ``chapter_stopwords`` topic field end-to-end. It is NOT a real
+# textbook outline; do not feed it to a real pipeline.
+#
+# What this fixture models:
+#   * A chapter ("chapter-functions-and-equations") whose intro
+#     paragraphs always drop the words "本章主要学习", "考点",
+#     "专题一". These tokens are noise — every item in the
+#     chapter mentions them regardless of which leaf it belongs
+#     to.
+#   * Two leaves inside the chapter both declare "考点" as a
+#     positive keyword. Without chapter_stopwords, an item that
+#     says only "考点讲解函数的概念" would be wrongly attributed
+#     to BOTH leaves; with chapter_stopwords, only the leaf whose
+#     non-stopword keyword ("函数" for functions, "方程" for
+#     equations) appears in the item body matches.
+#   * A sibling leaf in a different chapter ("triangles" inside
+#     chapter-geometry) also declares "考点" as a positive
+#     keyword. Its parent chapter does NOT declare "考点" as a
+#     stopword, so "考点" must still count as a positive keyword
+#     hit on that leaf.
+#
+# Pin tests live in tests/test_outline_loader.py and
+# tests/test_outline_matcher.py.
+
+outline_id: chapter-noise-fixture
+name: Chapter stopword fixture (schema-only demo)
+version: 1.0.0
+
+applies_to:
+  subject: math
+  stage: elementary
+
+topics:
+  - id: chapter-functions-and-equations
+    label: 函数与方程
+    chapter_stopwords:
+      - 本章主要学习
+      - 考点
+      - 专题一
+    children:
+      - id: functions
+        label: 函数
+        description: 一次函数、反比例函数
+      - id: equations
+        label: 方程
+        description: 一元一次方程
+  - id: chapter-geometry
+    label: 几何初步
+    children:
+      - id: triangles
+        label: 三角形
+        description: 三角形性质
+
+vocabulary:
+  functions:
+    keywords:
+      - 函数
+      - 一次函数
+      - 反比例
+  equations:
+    keywords:
+      - 方程
+      - 考点
+      - 未知数
+  triangles:
+    keywords:
+      - 三角形
+      - 考点

@@ -21,16 +21,17 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 import yaml
 
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 
-def _collect_ancestors(node: "Topic", target_id: str, out: list["Topic"]) -> bool:
+def _collect_ancestors(node: Topic, target_id: str, out: list[Topic]) -> bool:
     """Walk the tree depth-first; append every node on the path
     to ``target_id`` (excluding the root ancestor we started from
     is not the case here — we keep all parents AND the target leaf
@@ -58,10 +59,10 @@ class Topic:
     id: str
     label: str
     description: str = ""
-    children: tuple["Topic", ...] = ()
+    children: tuple[Topic, ...] = ()
     chapter_stopwords: tuple[str, ...] = ()
 
-    def leaves(self) -> list["Topic"]:
+    def leaves(self) -> list[Topic]:
         """Return every descendant that has no children of its own."""
         if not self.children:
             return [self]

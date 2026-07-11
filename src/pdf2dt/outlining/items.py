@@ -8,16 +8,15 @@ item as plain text so that the matcher can use them as additional
 context.
 
 It does **not** aim to reproduce the full Markdown AST — only the
-shape the outline matcher needs. Later stages (figure analysis,
-review) may replace this with a richer representation.
+shape the outline matcher needs. Later stages (geometry, review) may
+replace this with a richer representation.
 """
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable
-
 
 # Recognized item-type markers as Chinese textbook conventions use them.
 # Each marker is a bold lead-in like "**定义 12.1**" or "**例题 12.2**".
@@ -35,7 +34,7 @@ _IMAGE_RE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
 # Inline image alt plain-text fallback for the searchable buffer.
 _PLAIN_IMG_ALT_RE = re.compile(r"!\[[^\]]*\]\([^)]+\)")
 
-# Section dividers used in Chinese textbooks/documents (一、二、… / 第X节).
+# Section dividers used in Chinese math textbooks (一、二、… / 第X节).
 _SECTION_PREFIX_RE = re.compile(r"^第[一二三四五六七八九十百千0-9]+节\b")
 
 
@@ -44,7 +43,8 @@ class Item:
     """One content block extracted from the normalized markdown."""
 
     item_id: str
-    item_type: str  # chapter | section | definition | theorem | example | solution | exercise | summary | other
+    item_type: str  # chapter | section | definition | theorem | example | solution
+    # | exercise | summary | other
     title: str
     text: str  # full text including the title (used by the matcher)
     chapter_path: tuple[str, ...] = ()  # ordered heading titles above this item

@@ -1,4 +1,4 @@
-﻿# Runtime language and operator UI
+# Runtime language and operator UI
 
 ## Decision
 

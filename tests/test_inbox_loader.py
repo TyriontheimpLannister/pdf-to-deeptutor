@@ -1,4 +1,4 @@
-﻿"""Tests for the MinerU inbox loader using the synthetic fixture."""
+"""Tests for the MinerU inbox loader using the synthetic fixture."""
 
 from __future__ import annotations
 
@@ -7,11 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from pdf2dt.inbox import InboxLoader, InboxTask, LoadedMinerU, load_inbox_task
+from pdf2dt.inbox import InboxLoader, LoadedMinerU, load_inbox_task
 from pdf2dt.inbox.loader import ValidationError
 
-FIXTURE_DIR = Path(__file__).resolve().parents[1] / "demos" / "inbox-sample"
-TASK_DIR = FIXTURE_DIR / "sample-chapter-01"
+FIXTURE_DIR = Path(__file__).resolve().parents[1] / "demos/inbox-sample"
+TASK_DIR = FIXTURE_DIR / "g8-triangle-ch03"
 META_JSON = TASK_DIR / "meta.json"
 
 
@@ -23,8 +23,11 @@ def loader() -> InboxLoader:
 class TestScan:
     def test_finds_fixture_task(self, loader: InboxLoader) -> None:
         tasks = loader.scan()
-        assert len(tasks) == 1
-        assert tasks[0].task_id == "sample-chapter-01"
+        # This fork intentionally ships an extra generic demo
+        # (demos/inbox-sample/sample-chapter-01) alongside the math demo,
+        # so the scan may surface more than one valid task.
+        assert len(tasks) >= 1
+        assert any(t.task_id == "g8-triangle-ch03-sample" for t in tasks)
 
     def test_skips_reserved_dirs(self) -> None:
         # Create fake reserved dirs inside a temporary inbox root
@@ -58,8 +61,8 @@ class TestScan:
 class TestValidateTaskDir:
     def test_valid_fixture_passes(self) -> None:
         task = InboxLoader(FIXTURE_DIR)._validate_task_dir(TASK_DIR)
-        assert task.task_id == "sample-chapter-01"
-        assert task.meta.source.original_filename == "sample-document.pdf"
+        assert task.task_id == "g8-triangle-ch03-sample"
+        assert task.meta.source.original_filename == "八年级数学-全等三角形-习题集.pdf"
         assert task.meta.products.markdown == "full.md"
         assert task.meta.products.layout_json == "layout.json"
         assert task.images_dir is not None
@@ -97,8 +100,8 @@ class TestValidateTaskDir:
 class TestLoadTask:
     def test_loads_markdown(self) -> None:
         loaded = load_inbox_task(TASK_DIR)
-        assert "第一章 示例主题" in loaded.markdown_text
-        assert "定理 1.1" in loaded.markdown_text
+        assert "第十二章 全等三角形" in loaded.markdown_text
+        assert "边角边定理" in loaded.markdown_text
 
     def test_loads_layout(self) -> None:
         loaded = load_inbox_task(TASK_DIR)
@@ -119,5 +122,4 @@ class TestLoadTask:
     def test_convenience_function(self) -> None:
         loaded = load_inbox_task(TASK_DIR)
         assert isinstance(loaded, LoadedMinerU)
-        assert loaded.task_id == "sample-chapter-01"
-
+        assert loaded.task_id == "g8-triangle-ch03-sample"

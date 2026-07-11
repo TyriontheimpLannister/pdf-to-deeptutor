@@ -1,9 +1,4 @@
-"""Tests for the MinerU pdf_info[] → pages[] adapter.
-
-Domain-neutral port of the upstream ``test_mineru_adapter.py``. The
-synthetic layout test uses generic sample text; the real-project test
-is skipped when the private MinerU export is not present in this fork.
-"""
+"""Smoke tests for the MinerU pdf_info[] → pages[] adapter."""
 from __future__ import annotations
 
 import json
@@ -16,10 +11,9 @@ from pdf2dt.bookview.mineru_adapter import (
     is_mineru_layout,
 )
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REAL_MINERU_LAYOUT = (
-    PROJECT_ROOT / "projects" / "private-real-project" / "normalized" / "layout.localized.json"
+    PROJECT_ROOT / "projects" / "学之舟-总复习" / "normalized" / "layout.localized.json"
 )
 
 
@@ -45,7 +39,7 @@ def test_adapt_mineru_layout_handles_synthetic_mineru() -> None:
                                 "lines": [
                                     {
                                         "spans": [
-                                            {"type": "text", "content": "Chapter One"}
+                                            {"type": "text", "content": "第一章 数字"}
                                         ]
                                     }
                                 ]
@@ -60,12 +54,15 @@ def test_adapt_mineru_layout_handles_synthetic_mineru() -> None:
                                 "lines": [
                                     {
                                         "spans": [
-                                            {"type": "text", "content": "This paragraph contains sample body text."}
+                                            {
+                                                "type": "text",
+                                                "content": "整数包括正整数、零和负整数。",
+                                            }
                                         ]
                                     },
                                     {
                                         "spans": [
-                                            {"type": "text", "content": "It spans multiple lines for testing."}
+                                            {"type": "text", "content": "自然数从 0 开始。"}
                                         ]
                                     },
                                 ]
@@ -98,27 +95,36 @@ def test_adapt_mineru_layout_handles_synthetic_mineru() -> None:
     assert page["page_number"] == 1
     assert len(page["blocks"]) == 3
     assert page["blocks"][0]["type"] == "heading"
-    assert page["blocks"][0]["text"] == "Chapter One"
+    assert page["blocks"][0]["text"] == "第一章 数字"
     assert page["blocks"][1]["type"] == "paragraph"
-    assert "sample body text" in page["blocks"][1]["text"]
-    assert "multiple lines for testing." in page["blocks"][1]["text"]
+    assert "正整数" in page["blocks"][1]["text"]
+    assert "自然数从 0 开始" in page["blocks"][1]["text"]
     assert page["blocks"][2]["type"] == "figure"
     assert page["blocks"][2]["image_url"] == "abc123hash"
 
 
 @pytest.mark.skipif(
     not REAL_MINERU_LAYOUT.is_file(),
-    reason="private real-project MinerU layout is not shipped in this fork",
+    reason="private 学之舟-总复习 MinerU layout is not shipped in this fork",
 )
 def test_adapt_mineru_layout_real_project() -> None:
-    """The real private-project layout has 11 pages with image-dominant content."""
+    """The real 学之舟-总复习 layout has 11 pages with image-dominant content."""
+    assert REAL_MINERU_LAYOUT.is_file(), (
+        f"real MinerU layout not found: {REAL_MINERU_LAYOUT}"
+    )
     raw = json.loads(REAL_MINERU_LAYOUT.read_text(encoding="utf-8"))
     pages = adapt_mineru_layout(raw)
     assert len(pages) == 11
     total_images = sum(
-        1 for page in pages for block in page["blocks"] if block.get("image_url")
+        1
+        for page in pages
+        for block in page["blocks"]
+        if block.get("image_url")
     )
-    assert total_images >= 10, f"expected at least 10 images, got {total_images}"
+    assert total_images >= 10, (
+        f"expected at least 10 images, got {total_images}"
+    )
+    # Every output block must conform to the fixture schema shape.
     for page in pages:
         for block in page["blocks"]:
             assert "block_id" in block

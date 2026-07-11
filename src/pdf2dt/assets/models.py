@@ -52,11 +52,21 @@ class AssetRegistry(BaseModel):
 
     by_url: dict[str, AssetId] = Field(default_factory=dict)
     by_id: dict[AssetId, Asset] = Field(default_factory=dict)
+    failures: dict[str, str] = Field(default_factory=dict)
 
-    def add(self, asset: Asset) -> None:
+    def add(self, asset: Asset, *, source_url: str | None = None) -> None:
         self.by_id[asset.asset_id] = asset
-        if asset.source_url is not None:
-            self.by_url[asset.source_url] = asset.asset_id
+        url = source_url if source_url is not None else asset.source_url
+        if url is not None:
+            self.by_url[url] = asset.asset_id
+
+    def add_alias(self, url: str, asset: Asset) -> None:
+        """Record another source reference for an already localized asset."""
+        self.by_url[url] = asset.asset_id
+
+    def add_failure(self, url: str, error: str) -> None:
+        """Record a source image that could not be localized."""
+        self.failures[url] = error
 
     def get_by_url(self, url: str) -> Asset | None:
         asset_id = self.by_url.get(url)

@@ -29,8 +29,8 @@ The function returns the same shape as the fixture layout's
 from __future__ import annotations
 
 import re
-from typing import Any, Iterable
-
+from collections.abc import Iterable
+from typing import Any
 
 # Mapping MinerU para block type → fixture layout block type. Fixture
 # builder treats "figure" specially; non-figure text and headings go
@@ -76,7 +76,9 @@ def _collect_text(para: dict[str, Any]) -> str:
     return re.sub(r"\s+", " ", " ".join(parts)).strip()
 
 
-def _first_image_url(para: dict[str, Any]) -> tuple[str | None, tuple[float, float, float, float] | None]:
+def _first_image_url(
+    para: dict[str, Any],
+) -> tuple[str | None, tuple[float, float, float, float] | None]:
     """Return the first ``image_path`` under a paragraph, plus its bbox."""
     for block in para.get("blocks") or []:
         for line in block.get("lines") or []:
@@ -176,4 +178,4 @@ __all__ = [
     "adapt_mineru_layout",
     "is_mineru_layout",
     "iter_images",
-]  
+]
