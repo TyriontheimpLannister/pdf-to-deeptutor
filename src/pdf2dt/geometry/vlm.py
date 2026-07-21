@@ -261,14 +261,20 @@ def _extract_sensenova_text(data: Any) -> str:
     """Safely extract the assistant message from a SenseNova response.
 
     Returns ``""`` when the response is missing required containers; never
-    raises.
+    raises. The SenseNova `chat-completions` endpoint returns the OpenAI-
+    style body directly (``{"choices": [...], "id": ..., "model": ...}``)
+    with no ``data`` envelope.
     """
     if not isinstance(data, dict):
         return ""
-    data_field = data.get("data")
-    if not isinstance(data_field, dict):
-        return ""
-    choices = data_field.get("choices")
+    # Some SenseNova deployments wrap the body in a "data" field (legacy
+    # /v1/llm/chat-completions on api.sensenova.cn). Newer
+    # /v1/chat/completions on token.sensenova.cn returns the body
+    # directly. Probe both shapes.
+    body = data
+    if isinstance(data.get("data"), dict):
+        body = data["data"]
+    choices = body.get("choices")
     if not isinstance(choices, list) or not choices:
         return ""
     first = choices[0]
@@ -291,6 +297,7 @@ class MiniMaxM3Provider:
 
     name = "minimax-m3"
     endpoint = "https://api.minimaxi.com/anthropic"
+    token_plan_endpoint = "https://api.minimaxi.com/v1"
 
     def __init__(
         self,
@@ -303,8 +310,9 @@ class MiniMaxM3Provider:
         max_image_bytes: int = _DEFAULT_MAX_IMAGE_BYTES,
     ) -> None:
         self._api_key = api_key if api_key is not None else os.environ.get("MINIMAX_API_KEY")
-        self._base_url = (
-            base_url.rstrip("/") if base_url else self.endpoint
+        self._token_plan = bool(self._api_key and self._api_key.startswith("sk-cp-"))
+        self._base_url = base_url.rstrip("/") if base_url else (
+            self.token_plan_endpoint if self._token_plan else self.endpoint
         )
         self._model = model or os.environ.get("MINIMAX_VLM_MODEL", "MiniMax-M3")
         self._timeout = timeout_seconds
@@ -329,42 +337,63 @@ class MiniMaxM3Provider:
         except OSError as exc:
             return VlmResponse(error=f"cannot read image: {exc}")
         media_type = gate.media_type or "application/octet-stream"
-        payload = {
-            "model": self._model,
-            "max_tokens": 1200,
-            "temperature": 0,
-            "thinking": {"type": "disabled"},
-            "messages": [
-                {
+        if self._token_plan:
+            payload = {
+                "model": self._model,
+                "max_tokens": 1200,
+                "temperature": 0,
+                "messages": [{
                     "role": "user",
                     "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": media_type,
-                                "data": encoded,
-                            },
-                        },
-                        {"type": "text", "text": _PROMPT.format(context=context[:8000])},
+                        {"type": "text", "text": context[:8000]},
+                        {"type": "image_url", "image_url": {
+                            "url": f"data:{media_type};base64,{encoded}"
+                        }},
                     ],
-                }
-            ],
-        }
-        headers = {
-            "x-api-key": self._api_key,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json",
-        }
+                }],
+            }
+            request_url = (
+                f"{self._base_url}/chat/completions"
+                if self._base_url.endswith("/v1")
+                else f"{self._base_url}/v1/chat/completions"
+            )
+            headers = {
+                "Authorization": f"Bearer {self._api_key}",
+                "content-type": "application/json",
+            }
+        else:
+            payload = {
+                "model": self._model,
+                "max_tokens": 1200,
+                "temperature": 0,
+                "thinking": {"type": "disabled"},
+                "messages": [{
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": encoded,
+                        }},
+                        {"type": "text", "text": context[:8000]},
+                    ],
+                }],
+            }
+            request_url = f"{self._base_url}/v1/messages"
+            headers = {
+                "x-api-key": self._api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            }
         try:
             if self._client is None:
                 with httpx.Client(timeout=self._timeout) as client:
                     response = client.post(
-                        f"{self._base_url}/v1/messages", json=payload, headers=headers
+                        request_url, json=payload, headers=headers
                     )
             else:
                 response = self._client.post(
-                    f"{self._base_url}/v1/messages", json=payload, headers=headers
+                    request_url, json=payload, headers=headers
                 )
             response.raise_for_status()
             try:
@@ -376,7 +405,11 @@ class MiniMaxM3Provider:
                 )
         except httpx.HTTPError as exc:
             return VlmResponse(error=f"MiniMax request failed: {exc}")
-        text = _extract_message_text(data.get("content") if isinstance(data, dict) else None)
+        text = (
+            _extract_sensenova_text(data)
+            if self._token_plan
+            else _extract_message_text(data.get("content") if isinstance(data, dict) else None)
+        )
         if not text:
             return VlmResponse(
                 raw_response=json.dumps(data) if isinstance(data, dict) else "",
@@ -386,10 +419,24 @@ class MiniMaxM3Provider:
 
 
 class SenseNovaProvider:
-    """SenseNova multimodal chat-completions provider."""
+    """SenseNova multimodal chat-completions provider.
+
+    The ``chat-completions`` endpoint is hosted on the user-supplied
+    SenseTime token gateway at ``https://token.sensenova.cn/v1``;
+    earlier versions of this class targeted ``api.sensenova.cn`` with a
+    private ``image_base64`` content block, which the current gateway
+    rejects with HTTP 400. The OpenAI-compatible payload below works
+    against the current gateway (verified 2026-07-14 via live probe).
+
+    Required env vars:
+      * ``SENSENOVA_API_KEY`` — bearer token
+      * ``SENSENOVA_VLM_MODEL`` — model id; default
+        ``sensenova-6.7-flash-lite``. The endpoint's ``/v1/models``
+        exposes only lower-case identifiers.
+    """
 
     name = "sensenova"
-    endpoint = "https://api.sensenova.cn/v1/llm/chat-completions"
+    endpoint = "https://token.sensenova.cn/v1/chat/completions"
 
     def __init__(
         self,
@@ -406,7 +453,7 @@ class SenseNovaProvider:
         self._model = (
             model
             if model is not None
-            else os.environ.get("SENSENOVA_VLM_MODEL", "SenseNova-6.7-Flash-Lite")
+            else os.environ.get("SENSENOVA_VLM_MODEL", "sensenova-6.7-flash-lite")
         )
         self._timeout = timeout_seconds
         self._client = client
@@ -428,6 +475,10 @@ class SenseNovaProvider:
             encoded = base64.b64encode(image_path.read_bytes()).decode("ascii")
         except OSError as exc:
             return VlmResponse(error=f"cannot read image: {exc}")
+        # OpenAI-style image content part (data URL). senseTime's
+        # ``token.sensenova.cn`` gateway accepts this shape and
+        # rejects the legacy ``image_base64`` private field with 400.
+        data_url = f"data:image/jpeg;base64,{encoded}"
         payload = {
             "model": self._model,
             "max_new_tokens": 1200,
@@ -437,8 +488,11 @@ class SenseNovaProvider:
                 {
                     "role": "user",
                     "content": [
-                        {"type": "image_base64", "image_base64": encoded},
-                        {"type": "text", "text": _PROMPT.format(context=context[:8000])},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": data_url},
+                        },
+                        {"type": "text", "text": context[:8000]},
                     ],
                 }
             ],
@@ -577,10 +631,20 @@ class HybridGeometryAnalyzer(GeometryAnalyzer):
         call.asset_sha256 = _file_sha256(asset_path)
         context = "\n".join(filter(None, [item.title, item.text, caption]))
         call.context_chars = len(context)
-        call.request_bytes = asset_path.stat().st_size if asset_path.exists() else 0
+        call.request_bytes = asset_path.stat().st_size if asset_path.is_file() else 0
+
+        # Provider contract (`analyze_image(path, ctx)`): the second
+        # argument is the fully-formed user prompt text. Provider
+        # implementations send it through verbatim and do not wrap any
+        # internal schema prompt of their own. The figure-role sidecar
+        # in :mod:`pdf2dt.review.figure_roles` therefore ships its own
+        # JSON-schema prompt here too; we do the same for geometry:
+        # explicitly format ``vlm._PROMPT`` so the model receives the
+        # geometry JSON schema.
+        prompt = _PROMPT.format(context=context[:8000])
 
         start = time.perf_counter()
-        response = self.provider.analyze_image(asset_path, context)
+        response = self.provider.analyze_image(asset_path, prompt)
         call.elapsed_ms = int((time.perf_counter() - start) * 1000)
         call.error = response.error
         call.response_sha256 = _sha256(response.raw_response)

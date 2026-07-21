@@ -67,3 +67,7 @@ demos/private/
 
 # Test runtime artifact
 tests/_tmp_inbox/
+
+# Graphify knowledge-graph working cache (commit graph.json/html/report/manifest only)
+graphify-out/.graphify_*
+graphify-out/cache/

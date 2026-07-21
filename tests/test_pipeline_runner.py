@@ -63,8 +63,21 @@ def test_pipeline_creates_full_workspace(tmp_path: Path, mirror) -> None:
     assert manifest["stages"]["stage0_workspace"]["status"] == StageStatus.COMPLETED.value
     assert manifest["stages"]["stage1_ingest"]["status"] == StageStatus.COMPLETED.value
     assert manifest["stages"]["stage2_localize"]["status"] == StageStatus.COMPLETED.value
+    assert (
+        manifest["stages"]["stage2_5_document_structure"]["status"] == StageStatus.COMPLETED.value
+    )
+    stage25 = manifest["stages"]["stage2_5_document_structure"]
+    assert stage25["metadata"]["alignment_status"] in {"active", "not_needed"}
+    assert stage25["metadata"]["markdown_images"] == 4
+    assert stage25["input_fingerprint"]
     assert manifest["stages"]["stage1_ingest"]["metadata"]["image_references_count"] == 4
     assert manifest["stages"]["stage2_localize"]["metadata"]["assets_localized"] == 4
+
+    structure_path = project_root / "normalized" / "document_structure.json"
+    assert structure_path.is_file()
+    structure = json.loads(structure_path.read_text(encoding="utf-8"))
+    assert structure["schema_version"] == "document_structure/v1"
+    assert structure["blocks"]
 
     # 4 assets localized on disk
     assert len(result.asset_registry) == 4
@@ -120,6 +133,7 @@ def test_pipeline_resumable(tmp_path: Path, mirror) -> None:
     assert manifest1["stages"]["stage0_workspace"]["status"] == "completed"
     assert manifest1["stages"]["stage1_ingest"]["status"] == "completed"
     assert manifest1["stages"]["stage2_localize"]["status"] == "completed"
+    assert manifest1["stages"]["stage2_5_document_structure"]["status"] == "completed"
 
     # Second run should succeed, skipping all completed stages.
     result2 = runner.run(
@@ -135,6 +149,7 @@ def test_pipeline_resumable(tmp_path: Path, mirror) -> None:
     assert manifest2["stages"]["stage0_workspace"]["status"] == "skipped"
     assert manifest2["stages"]["stage1_ingest"]["status"] == "skipped"
     assert manifest2["stages"]["stage2_localize"]["status"] == "skipped"
+    assert manifest2["stages"]["stage2_5_document_structure"]["status"] == "skipped"
 
     # The workspace root is the same.
     assert result1.workspace.root == result2.workspace.root
@@ -143,6 +158,54 @@ def test_pipeline_resumable(tmp_path: Path, mirror) -> None:
     md1 = (project_root / "normalized" / "full.md").read_text(encoding="utf-8")
     md2 = (project_root / "normalized" / "full.md").read_text(encoding="utf-8")
     assert md1 == md2
+
+
+def test_stage25_fingerprint_covers_markdown(tmp_path: Path, mirror) -> None:
+    from pdf2dt.project import create_workspace
+
+    ws = create_workspace(
+        tmp_path / "stage25-fingerprint",
+        project_id="stage25-fingerprint",
+        title="Stage 2.5 fingerprint",
+    )
+    (ws.normalized_dir / "layout.localized.json").write_text(
+        json.dumps(
+            {
+                "pages": [
+                    {
+                        "page_index": 0,
+                        "page_number": 1,
+                        "blocks": [
+                            {
+                                "block_id": "p000-b000",
+                                "type": "figure",
+                                "image_url": "assets/a.png",
+                                "asset_id": "a",
+                            }
+                        ],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    markdown_path = ws.normalized_dir / "full.md"
+    markdown_path.write_text(
+        "# 第一章\n\n" + ("原始正文。" * 45) + "\n\n![图](assets/a.png)\n",
+        encoding="utf-8",
+    )
+    runner = PipelineRunner(mirror)
+
+    runner._run_document_structure(ws)
+    first = ws.load_manifest()["stages"]["stage2_5_document_structure"]
+    markdown_path.write_text(
+        "# 第一章\n\n" + ("修改后的正文。" * 45) + "\n\n![图](assets/a.png)\n",
+        encoding="utf-8",
+    )
+    runner._run_document_structure(ws)
+    second = ws.load_manifest()["stages"]["stage2_5_document_structure"]
+
+    assert first["input_fingerprint"] != second["input_fingerprint"]
 
 
 def test_pipeline_marks_stage2_failed_when_an_image_cannot_be_localized(
@@ -281,6 +344,7 @@ class TestFullPipeline:
             "stage0_workspace",
             "stage1_ingest",
             "stage2_localize",
+            "stage2_5_document_structure",
             "stage4b_outline",
             "stage3_book_view",
             "stage4c_export_plan",
@@ -349,10 +413,11 @@ class TestFullPipeline:
         manifest = result.workspace.load_manifest()
         stages = manifest["stages"]
 
-        # Stages 0-2 present and completed
+        # Stages 0-2.5 present and completed
         assert stages["stage0_workspace"]["status"] == StageStatus.COMPLETED.value
         assert stages["stage1_ingest"]["status"] == StageStatus.COMPLETED.value
         assert stages["stage2_localize"]["status"] == StageStatus.COMPLETED.value
+        assert stages["stage2_5_document_structure"]["status"] == StageStatus.COMPLETED.value
 
         # Stages 4b/3/4c/7 NOT present
         late_stages = (
@@ -659,4 +724,3 @@ def test_pipeline_runner_force_geometry_re_extends_with_injected_analyzer(
     # On a fresh workspace force_geometry=True still zeroes the audit
     # log because the new queue overwrites every review_state.
     assert meta.get("review_reset") is True
-

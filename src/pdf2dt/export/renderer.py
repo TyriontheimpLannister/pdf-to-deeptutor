@@ -28,6 +28,7 @@ import hashlib
 import json
 import logging
 import re
+from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,6 +37,13 @@ from typing import Any
 from fpdf import FPDF
 
 from ..project import ProjectWorkspace, StageStatus, record_stage, save_manifest
+from ..review.figure_roles import (
+    FigureRole,
+    FigureRoleRecord,
+    FigureRoleStore,
+    effective_role_for_use,
+)
+from ..review.store import FigureRoleOverrideStore
 from .planner import ExportPlan, ExportPlanCollection, ReorgMode
 
 logger = logging.getLogger(__name__)
@@ -47,6 +55,19 @@ _CANDIDATE_CJK_FONTS = [
     Path(r"C:\Windows\Fonts\simhei.ttf"),
     Path(r"C:\Windows\Fonts\simsun.ttc"),
 ]
+
+_INLINE_IMAGE_MARKER_RE = re.compile(r"!\[image\]\([^)]*\)")
+
+
+def _without_inline_image_markers(text: str) -> str:
+    """Remove image markers from body text before figures are rendered.
+
+    Inline image references are materialized from ``asset_refs`` below the
+    item body. Leaving the Markdown marker in the paragraph produces a
+    literal ``![image](...)`` line in the exported PDF.
+    """
+    without_markers = _INLINE_IMAGE_MARKER_RE.sub("", text)
+    return re.sub(r"\n{3,}", "\n\n", without_markers).strip()
 
 
 def _find_cjk_font() -> Path | None:
@@ -146,6 +167,8 @@ class RenderResult:
     """Human-readable warnings generated during rendering."""
     geometry_blocked_figures: list[str] = field(default_factory=list)
     """Figure IDs that have unreviewed visual_inference/unknown relations."""
+    dropped_figures: list[dict[str, Any]] = field(default_factory=list)
+    """Figures skipped because of role=decor classification."""
     validation_status: str = ExportValidationStatus.READY
     plan_mode: str = ""
 
@@ -178,8 +201,12 @@ class PdfRenderer:
         self._assets_dir = workspace.root / "assets"
         self._assets_registry: dict[str, dict[str, Any]] = {}
         self._geometry_by_asset: dict[str, Any] = {}
+        self._roles_by_id: dict[str, FigureRoleRecord] = {}
+        self._roles_by_use: dict[tuple[str, str], FigureRoleRecord] = {}
+        self._role_overrides_by_id: dict[str, FigureRoleRecord] = {}
         self._load_assets_registry()
         self._load_geometry()
+        self._load_figure_roles()
 
     def render_collection(self, collection: ExportPlanCollection) -> list[RenderResult]:
         results: list[RenderResult] = []
@@ -224,9 +251,17 @@ class PdfRenderer:
         rendered_figures: set[str] = set()
         missing_figures: list[str] = []
         warnings: list[str] = []
+        dropped_figures: list[dict[str, Any]] = []
 
         for item in plan.items:
-            self._render_item(pdf, item, rendered_figures, missing_figures, warnings)
+            # Carry the plan_id so _render_item can attribute any
+            # text-noise drops it makes back to the right plan.
+            item_with_ctx = dict(item)
+            item_with_ctx.setdefault("_plan_id", plan.plan_id)
+            self._render_item(
+                pdf, item_with_ctx, rendered_figures, missing_figures, warnings,
+                dropped_figures,
+            )
 
         pdf.output(str(out_path))
 
@@ -238,6 +273,7 @@ class PdfRenderer:
             missing_figures=list(missing_figures),
             warnings=warnings,
             plan_mode=plan.mode.value,
+            dropped_figures=list(dropped_figures),
         )
         result.geometry_blocked_figures = self._geometry_blocked_for_plan(
             plan
@@ -293,6 +329,42 @@ class PdfRenderer:
         except (json.JSONDecodeError, OSError):
             pass
 
+    def _load_figure_roles(self) -> None:
+        """Load figure role classifications and user overrides.
+
+        Missing or malformed files are silently ignored: the renderer
+        must keep producing PDFs for projects that have no role
+        annotation yet (e.g. legacy workspaces).
+        """
+        try:
+            role_store = FigureRoleStore(self._workspace)
+            self._roles_by_id = role_store.index()
+            self._roles_by_use = role_store.index_by_use()
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.warning("figure_roles.json unreadable: %s", exc)
+            self._roles_by_id = {}
+            self._roles_by_use = {}
+        try:
+            overrides = FigureRoleOverrideStore(self._workspace).load()
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.warning("figure_role_overrides.json unreadable: %s", exc)
+            overrides = []
+        self._role_overrides_by_id = {}
+        for d in overrides:
+            try:
+                role_enum = FigureRole(d.role)
+            except ValueError:
+                continue
+            self._role_overrides_by_id[d.figure_id] = FigureRoleRecord(
+                figure_id=d.figure_id,
+                asset_id="",
+                asset_sha256="",
+                role=role_enum,
+                reason=d.reviewer_note or "user_override",
+                model_id="override",
+                classified_at=d.applied_at,
+            )
+
     def _render_item(
         self,
         pdf: _PdfDoc,
@@ -300,14 +372,34 @@ class PdfRenderer:
         rendered_figures: set[str],
         missing_figures: list[str],
         warnings: list[str],
+        dropped_figures: list[dict[str, Any]],
     ) -> None:
         item_type = item.get("item_type") or "other"
         title = item.get("title") or ""
         text = item.get("text") or ""
 
+        # Defence-in-depth: even after the matcher-side noise filter,
+        # a stray watermark or page-number item can sneak through if
+        # the heuristic was extended after a run was staged. Re-check
+        # here so the renderer never produces a PDF containing a
+        # noise item.
+        from pdf2dt.outlining import classify_noise  # noqa: PLC0415
+        noise = classify_noise(item)
+        if noise.is_noise:
+            dropped_figures.append(
+                {
+                    "plan_id": item.get("_plan_id", ""),
+                    "item_id": item.get("item_id", ""),
+                    "role": "text-noise",
+                    "reason": f"renderer noise filter: {noise.reason}",
+                    "asset_id": None,
+                }
+            )
+            return
+
         pdf.write_heading(f"[{item_type}] {title}", level=3)
 
-        body = text
+        body = _without_inline_image_markers(text)
         if body.startswith(title):
             body = body[len(title):].lstrip()
         if body:
@@ -322,30 +414,82 @@ class PdfRenderer:
             aid = asset.get("asset_id")
             if not aid or aid in rendered_figures:
                 continue
-            success = self._render_figure(pdf, aid, asset.get("caption"))
-            if success:
+            figure_id = str(asset.get("figure_id") or aid)
+            outcome = self._render_figure(
+                pdf,
+                aid,
+                asset.get("caption"),
+                figure_id=figure_id,
+                item_id=str(item.get("item_id") or ""),
+            )
+            if outcome == "rendered":
                 rendered_figures.add(aid)
+            elif outcome == "dropped":
+                role = effective_role_for_use(
+                    figure_id,
+                    str(item.get("item_id") or ""),
+                    self._roles_by_use,
+                    self._roles_by_id,
+                    self._role_overrides_by_id,
+                )
+                dropped_figures.append(
+                    {
+                        "asset_id": aid,
+                        "figure_id": figure_id,
+                        "role": role.role.value,
+                        "confidence": role.confidence,
+                        "reason": role.reason,
+                    }
+                )
             else:
                 missing_figures.append(aid)
                 warnings.append(f"Figure {aid} could not be embedded")
 
-    def _render_figure(self, pdf: _PdfDoc, asset_id: str, caption: str | None) -> bool:
+    def _render_figure(
+        self,
+        pdf: _PdfDoc,
+        asset_id: str,
+        caption: str | None,
+        *,
+        figure_id: str | None = None,
+        item_id: str = "",
+    ) -> str:
         """Try to embed the figure image into the PDF.
 
-        Returns ``True`` if the image was successfully embedded,
-        ``False`` if it was degraded to a caption placeholder.
+        Returns one of:
+
+        * ``"rendered"`` — image was embedded.
+        * ``"dropped"`` — image was skipped because its figure role
+          is ``decor``.
+        * ``"missing"`` — image could not be rendered (asset not
+          found, render error, etc.).
         """
+        # Figure role filter: skip embedding when the role is
+        # explicitly ``decor``. ``content`` and ``ambiguous`` (the
+        # default when no classification exists) both render.
+        fid = figure_id or asset_id
+        role = effective_role_for_use(
+            fid,
+            item_id,
+            self._roles_by_use,
+            self._roles_by_id,
+            self._role_overrides_by_id,
+        )
+        if role.role == FigureRole.DECOR:
+            logger.info("Figure %s dropped (role=decor)", asset_id)
+            return "dropped"
+
         asset = self._assets_registry.get(asset_id)
         if asset is None:
             pdf.write_caption(f"[Figure {asset_id} — metadata not found]")
             logger.warning("Figure %s: metadata not found in registry", asset_id)
-            return False
+            return "missing"
 
         local_path = asset.get("local_path")
         if not local_path:
             pdf.write_caption(f"[Figure {asset_id} — no local path]")
             logger.warning("Figure %s: no local_path in registry", asset_id)
-            return False
+            return "missing"
 
         img_path = self._workspace.root / local_path
         if not img_path.is_file():
@@ -353,9 +497,13 @@ class PdfRenderer:
             if alt_path.is_file():
                 img_path = alt_path
             else:
-                pdf.write_caption(f"[Figure {asset_id} — file not found: {local_path}]")
-                logger.warning("Figure %s: file not found at %s", asset_id, local_path)
-                return False
+                pdf.write_caption(
+                    f"[Figure {asset_id} — file not found: {local_path}]"
+                )
+                logger.warning(
+                    "Figure %s: file not found at %s", asset_id, local_path
+                )
+                return "missing"
 
         # Scale to fit page width (190 mm) preserving aspect ratio.
         width_mm = 190
@@ -386,7 +534,7 @@ class PdfRenderer:
         except Exception as exc:
             pdf.write_caption(f"[Figure {asset_id} — render error: {exc}]")
             logger.warning("Figure %s: render error: %s", asset_id, exc)
-            return False
+            return "missing"
 
         cap = caption or asset.get("caption") or f"Figure {asset_id}"
         if cap:
@@ -402,7 +550,7 @@ class PdfRenderer:
             self._render_geometry_relations(pdf, geo)
             self._render_geometry_description(pdf, geo)
 
-        return True
+        return "rendered"
 
     def _render_geometry_relations(
         self, pdf: _PdfDoc, geo: dict[str, Any]
@@ -525,6 +673,31 @@ class PdfRenderer:
             encoding="utf-8",
         )
 
+        # Per-export dropped figure report: a flat list across all
+        # plans, with plan_id so users can find what was omitted in
+        # which output.
+        all_drops: list[dict[str, Any]] = []
+        for r in results:
+            for drop in r.dropped_figures:
+                all_drops.append({"plan_id": r.plan_id, **drop})
+        drop_report_path = self._workspace.reports_dir / "dropped_figures.json"
+        drop_report_path.parent.mkdir(parents=True, exist_ok=True)
+        drop_report_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "dropped_figures/v1",
+                    "generated_at": datetime.now(timezone.utc).isoformat(
+                        timespec="seconds"
+                    ),
+                    "total_dropped": len(all_drops),
+                    "drops": all_drops,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
         # Determine overall stage metadata.
         metadata_extra: dict[str, Any] = {}
         blocked_exports = [
@@ -613,5 +786,23 @@ def render_exports(
         outline_used=data.get("outline_used"),
         plans=[ExportPlan.from_dict(plan) for plan in data.get("plans") or []],
     )
+
+    # Clear stale PDFs left over from earlier runs whose plans were
+    # dropped (Stage 4c dedup) or renumbered. Without this sweep
+    # ``exports/deeptutor`` keeps growing PDF files that no plan
+    # in the current ``plans.json`` will ever reference, which
+    # surfaces in DeepTutor as duplicates / empty / off-topic
+    # exports. Idempotent: removing a file that is about to be
+    # re-rendered is a no-op for the renderer.
+    planned_filenames = {plan.output_filename for plan in collection.plans}
+    exports_dir = workspace.exports_dir
+    stale: list[str] = []
+    if exports_dir.is_dir():
+        for pdf in exports_dir.glob("*.pdf"):
+            if pdf.name not in planned_filenames:
+                stale.append(pdf.name)
+                with suppress(OSError):
+                    pdf.unlink()
+
     renderer = PdfRenderer(workspace)
     return renderer.render_collection(collection)

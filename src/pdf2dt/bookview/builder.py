@@ -105,6 +105,7 @@ class BookItem:
     page_refs: list[int] = field(default_factory=list)
     bbox_union: tuple[float, float, float, float] | None = None
     topic_ids: list[str] = field(default_factory=list)
+    topic_match_scores: dict[str, int] = field(default_factory=dict)
     assignment_review_state: str = "unreviewed"
 
     def to_dict(self) -> dict[str, Any]:
@@ -119,6 +120,7 @@ class BookItem:
             "page_refs": list(self.page_refs),
             "bbox_union": list(self.bbox_union) if self.bbox_union is not None else None,
             "topic_ids": list(self.topic_ids),
+            "topic_match_scores": dict(self.topic_match_scores),
             "assignment_review_state": self.assignment_review_state,
         }
 
@@ -252,6 +254,79 @@ def _load_assignments(path: Path) -> tuple[dict[str, dict[str, Any]], str]:
     return out, fp
 
 
+def _topic_match_scores(assignment: dict[str, Any], topic_ids: list[str]) -> dict[str, int]:
+    """Return valid Stage 4b scores for the assigned topics only."""
+    allowed_topic_ids = set(topic_ids)
+    scores: dict[str, int] = {}
+    for detail in assignment.get("match_details") or []:
+        if not isinstance(detail, dict):
+            continue
+        topic_id = detail.get("topic_id")
+        score = detail.get("score")
+        if (
+            isinstance(topic_id, str)
+            and topic_id in allowed_topic_ids
+            and isinstance(score, int)
+            and not isinstance(score, bool)
+        ):
+            scores[topic_id] = score
+    return scores
+
+
+@dataclass(frozen=True)
+class _StructureContext:
+    attachments_by_target: dict[str, tuple[str, ...]]
+    synthetic_blocks: tuple[dict[str, Any], ...]
+
+
+def _load_structure_context(path: Path) -> _StructureContext:
+    """Load optional Stage 2.5 attachments and anchored fallback blocks.
+
+    Workspaces created before Stage 2.5 remain valid when the sidecar is
+    absent. A present sidecar is validated so corrupted relation data cannot
+    silently alter figure ownership.
+    """
+    if not path.is_file():
+        return _StructureContext({}, ())
+    data = _load_json(path)
+    if not isinstance(data, dict) or data.get("schema_version") != "document_structure/v1":
+        raise BookViewBuildError(f"{path}: invalid document structure sidecar")
+    relations = data.get("relations")
+    if not isinstance(relations, list):
+        raise BookViewBuildError(f"{path}: relations must be a list")
+    attachments: dict[str, list[str]] = {}
+    for relation in relations:
+        if not isinstance(relation, dict) or relation.get("kind") != "attached_to":
+            continue
+        source_id = relation.get("source_id")
+        target_id = relation.get("target_id")
+        if not isinstance(source_id, str) or not isinstance(target_id, str):
+            raise BookViewBuildError(f"{path}: attached_to relation has invalid block IDs")
+        attachments.setdefault(target_id, []).append(source_id)
+    normalized_attachments = {
+        target: tuple(sorted(set(sources))) for target, sources in attachments.items()
+    }
+
+    synthetic_blocks: list[dict[str, Any]] = []
+    alignment = data.get("alignment")
+    if isinstance(alignment, dict) and alignment.get("status") == "active":
+        blocks = data.get("blocks")
+        if not isinstance(blocks, list):
+            raise BookViewBuildError(f"{path}: blocks must be a list")
+        for block in blocks:
+            if not isinstance(block, dict) or block.get("source") != "markdown_fallback":
+                continue
+            if not isinstance(block.get("block_id"), str):
+                raise BookViewBuildError(f"{path}: fallback block has invalid block_id")
+            if not isinstance(block.get("anchor_block_id"), str):
+                continue
+            synthetic_blocks.append(block)
+    synthetic_blocks.sort(
+        key=lambda block: (int(block.get("source_line_start") or 0), str(block["block_id"]))
+    )
+    return _StructureContext(normalized_attachments, tuple(synthetic_blocks))
+
+
 # ---------------------------------------------------------------------- #
 # Builder
 # ---------------------------------------------------------------------- #
@@ -291,6 +366,11 @@ def _normalize_text(text: str) -> str:
     text = re.sub(r"`[^`]*`", " ", text)
     text = re.sub(r"\s+", " ", text)
     return text.strip().lower()
+
+
+def _normalize_structure_text(text: str) -> str:
+    """Normalize Markdown source text for exact sidecar-to-item matching."""
+    return re.sub(r"[*_~]+", "", _normalize_text(text))
 
 
 def _tokens(text: str) -> set[str]:
@@ -364,6 +444,7 @@ class BookViewBuilder:
 
         # 3. Bind layout blocks to items.
         block_index = self._index_blocks(pages, assets_by_id)
+        self._index_synthetic_blocks(block_index, self._structure_synthetic_blocks)
 
         # 4. Walk items in chapter / section / item order and place
         #    them under their parent chapter/section.
@@ -446,8 +527,81 @@ class BookViewBuilder:
                     "image_urls": image_urls,
                     "asset_id": str(asset_id) if asset_id else None,
                     "caption": block.get("caption"),
+                    "source": "layout",
+                    "source_line_start": None,
                 }
         return index
+
+    def _index_synthetic_blocks(
+        self,
+        index: dict[str, dict[str, Any]],
+        blocks: tuple[dict[str, Any], ...],
+    ) -> None:
+        """Add anchored Markdown text blocks without replacing layout blocks."""
+        chapter_path: list[str] = []
+        section_path: list[str] = []
+        for block in blocks:
+            block_id = str(block["block_id"])
+            block_type = str(block.get("block_type") or "paragraph")
+            text = str(block.get("text") or "")
+            if block_type == "heading":
+                level = int(block.get("heading_level") or 0)
+                if level == 1:
+                    chapter_path = [text]
+                    section_path = []
+                elif level == 2:
+                    section_path = [text]
+            page_index = block.get("page_index")
+            page_number = block.get("page_number")
+            if not isinstance(page_index, int) or not isinstance(page_number, int):
+                continue
+            index[block_id] = {
+                "ref": SourceBlockRef(
+                    block_id=block_id,
+                    page_index=page_index,
+                    page_number=page_number,
+                    bbox=(0.0, 0.0, 0.0, 0.0),
+                    block_type=block_type,
+                ),
+                "chapter_path": tuple(chapter_path + section_path),
+                "text": text,
+                "text_signature": _first_sentence(text, limit=40),
+                "tokens": _tokens(text),
+                "image_urls": [],
+                "asset_id": None,
+                "caption": None,
+                "source": "markdown_fallback",
+                "source_line_start": int(block.get("source_line_start") or 0),
+            }
+
+    def _matching_synthetic_blocks(
+        self,
+        item: Item,
+        block_index: dict[str, dict[str, Any]],
+        used_block_ids: set[str],
+        target_chapter: str,
+    ) -> tuple[tuple[str, dict[str, Any]], ...]:
+        """Return every unused fallback block contained in one Markdown item."""
+        item_text = _normalize_structure_text(item.text)
+        item_tokens = _tokens(item.text)
+        ranked: list[tuple[tuple[int, int, int], str, dict[str, Any]]] = []
+        for block_id, entry in block_index.items():
+            if entry.get("source") != "markdown_fallback" or block_id in used_block_ids:
+                continue
+            block_chapter = entry["chapter_path"][0] if entry["chapter_path"] else ""
+            if block_chapter and block_chapter != target_chapter:
+                continue
+            candidate_text = _normalize_structure_text(str(entry.get("text") or ""))
+            if not candidate_text or not item_text:
+                continue
+            if candidate_text not in item_text and item_text not in candidate_text:
+                continue
+            overlap = len(item_tokens & entry["tokens"])
+            source_line = int(entry.get("source_line_start") or 0)
+            score = (min(len(candidate_text), len(item_text)), overlap, -source_line)
+            ranked.append((score, block_id, entry))
+        ranked.sort(key=lambda candidate: candidate[0], reverse=True)
+        return tuple((block_id, entry) for _, block_id, entry in ranked)
 
     def _tree_from_items(
         self,
@@ -547,36 +701,53 @@ class BookViewBuilder:
         n = len(block_order)
         max_blocks = 6  # cap on blocks per item
 
-        # Pass 1 — find the next primary block for this item.
+        # Pass 1 — prefer an exact synthetic Markdown source when fallback is active.
+        synthetic_matches = self._matching_synthetic_blocks(
+            item, block_index, used_block_ids, target_chapter
+        )
+        synthetic_primary = synthetic_matches[0] if synthetic_matches else None
+        primary_from_synthetic = bool(synthetic_matches)
         primary_block_id: str | None = None
         primary_entry: dict[str, Any] | None = None
-        scan_cursor = cursor
-        while scan_cursor < n:
-            block_id, _ = block_order[scan_cursor]
-            entry = block_index.get(block_id)
-            if entry is None or block_id in used_block_ids:
+        if synthetic_primary is not None:
+            primary_block_id, primary_entry = synthetic_primary
+        else:
+            scan_cursor = cursor
+            while scan_cursor < n:
+                block_id, _ = block_order[scan_cursor]
+                entry = block_index.get(block_id)
+                if entry is None or block_id in used_block_ids:
+                    scan_cursor += 1
+                    continue
+                block_chapter = entry["chapter_path"][0] if entry["chapter_path"] else ""
+                if block_chapter and block_chapter != target_chapter:
+                    scan_cursor += 1
+                    continue
+                block_type = entry["ref"].block_type
+                if (
+                    block_type == "figure"
+                    and block_id in self._explicit_attachment_sources
+                ):
+                    # A Stage 2.5 relation already gives this visual an
+                    # owner. Keep the legacy cursor from binding it to an
+                    # earlier unmatched item before that target is visited.
+                    scan_cursor += 1
+                    continue
+                type_match = (
+                    block_type in expected_types
+                    or block_type in {"heading", "paragraph", "other"}
+                )
+                token_overlap = bool(item_tokens & entry["tokens"])
+                head_match = bool(item_head) and item_head[:10] in entry["text"]
+                figure_match = block_type == "figure" and bool(
+                    entry.get("image_urls") or []
+                )
+                if type_match or token_overlap or head_match or figure_match:
+                    primary_block_id = block_id
+                    primary_entry = entry
+                    cursor = scan_cursor + 1
+                    break
                 scan_cursor += 1
-                continue
-            block_chapter = entry["chapter_path"][0] if entry["chapter_path"] else ""
-            if block_chapter and block_chapter != target_chapter:
-                scan_cursor += 1
-                continue
-            block_type = entry["ref"].block_type
-            type_match = (
-                block_type in expected_types
-                or block_type in {"heading", "paragraph", "other"}
-            )
-            token_overlap = bool(item_tokens & entry["tokens"])
-            head_match = bool(item_head) and item_head[:10] in entry["text"]
-            figure_match = (
-                block_type == "figure" and bool(entry.get("image_urls") or [])
-            )
-            if type_match or token_overlap or head_match or figure_match:
-                primary_block_id = block_id
-                primary_entry = entry
-                cursor = scan_cursor + 1
-                break
-            scan_cursor += 1
 
         if primary_block_id is None or primary_entry is None:
             return self._finalize_book_item(
@@ -584,7 +755,18 @@ class BookViewBuilder:
             ), cursor
 
         source_blocks.append(primary_entry["ref"])
-        used_block_ids.add(primary_block_id)
+        if primary_from_synthetic:
+            used_block_ids.update(block_id for block_id, _ in synthetic_matches)
+            attachment_target_ids = [
+                block_id
+                for block_id, _ in sorted(
+                    synthetic_matches,
+                    key=lambda match: int(match[1].get("source_line_start") or 0),
+                )
+            ]
+        else:
+            used_block_ids.add(primary_block_id)
+            attachment_target_ids = [primary_block_id]
         page_refs.append(primary_entry["ref"].page_number)
         if primary_entry["ref"].bbox != (0.0, 0.0, 0.0, 0.0):
             bbox_boxes.append(primary_entry["ref"].bbox)
@@ -592,9 +774,29 @@ class BookViewBuilder:
             self._asset_refs_for_block(primary_entry, self._assets_by_id)
         )
 
+        # Prefer explicit Stage 2.5 attachments over the legacy "next figure"
+        # heuristic. They can point past an intervening heading or caption.
+        for target_id in attachment_target_ids:
+            for figure_id in self._attachments_by_target.get(target_id, ()):
+                if (
+                    not primary_from_synthetic and len(source_blocks) >= max_blocks
+                ) or figure_id in used_block_ids:
+                    continue
+                figure_entry = block_index.get(figure_id)
+                if figure_entry is None or figure_entry["ref"].block_type != "figure":
+                    continue
+                source_blocks.append(figure_entry["ref"])
+                used_block_ids.add(figure_id)
+                page_refs.append(figure_entry["ref"].page_number)
+                if figure_entry["ref"].bbox != (0.0, 0.0, 0.0, 0.0):
+                    bbox_boxes.append(figure_entry["ref"].bbox)
+                asset_refs.extend(
+                    self._asset_refs_for_block(figure_entry, self._assets_by_id)
+                )
+
         # Pass 2 — consume any figure blocks that immediately follow
         # the primary block in the same chapter.
-        while cursor < n and len(source_blocks) < max_blocks:
+        while not primary_from_synthetic and cursor < n and len(source_blocks) < max_blocks:
             block_id, _ = block_order[cursor]
             entry = block_index.get(block_id)
             if entry is None or block_id in used_block_ids:
@@ -604,6 +806,10 @@ class BookViewBuilder:
             if block_chapter and block_chapter != target_chapter:
                 break
             if entry["ref"].block_type != "figure":
+                break
+            if block_id in self._explicit_attachment_sources:
+                # Do not cross an explicitly-owned visual. Its target item
+                # will consume it through ``attachments_by_target``.
                 break
             image_urls = entry.get("image_urls") or []
             if not image_urls:
@@ -646,6 +852,7 @@ class BookViewBuilder:
             page_refs=sorted(set(page_refs)),
             bbox_union=_bbox_union(bbox_boxes),
             topic_ids=topic_ids,
+            topic_match_scores=_topic_match_scores(a, topic_ids),
             assignment_review_state=review_state,
         )
 
@@ -765,6 +972,16 @@ def _patched_init(self, workspace: ProjectWorkspace) -> None:  # type: ignore[no
     if assets_path.is_file():
         by_id, _ = _load_assets_registry(assets_path)
     self._assets_by_id = by_id
+    structure_context = _load_structure_context(
+        workspace.normalized_dir / "document_structure.json"
+    )
+    self._attachments_by_target = structure_context.attachments_by_target
+    self._explicit_attachment_sources = frozenset(
+        source_id
+        for source_ids in structure_context.attachments_by_target.values()
+        for source_id in source_ids
+    )
+    self._structure_synthetic_blocks = structure_context.synthetic_blocks
 
 
 BookViewBuilder.__init__ = _patched_init  # type: ignore[assignment]
@@ -791,6 +1008,7 @@ def _block_order_with_chapter(
         (
             (bid, e["chapter_path"][0] if e["chapter_path"] else "")
             for bid, e in block_index.items()
+            if e.get("source") != "markdown_fallback"
         ),
         key=lambda pair: (
             pair[1],

@@ -315,10 +315,32 @@ def match_project(
     if not md_path.is_file():
         raise FileNotFoundError(f"normalized markdown not found: {md_path}")
     items = extract_items(md_path.read_text(encoding="utf-8"))
+
+    # Drop OCR noise items before matching. This keeps watermark
+    # banners, page-number noise, and single-character ornaments out
+    # of every downstream plan (Stage 4c, Stage 7, _misc fallback).
+    from .noise import classify_noise  # local import to avoid cycles  # noqa: PLC0415
+
+    def _item_id(it) -> str:
+        if isinstance(it, dict):
+            return str(it.get("item_id", ""))
+        return str(getattr(it, "item_id", ""))
+
+    kept_items: list = []
+    dropped_items: list[dict] = []
+    for item in items:
+        verdict = classify_noise(item)
+        if verdict.is_noise:
+            dropped_items.append(
+                {"item_id": _item_id(item), "reason": verdict.reason}
+            )
+        else:
+            kept_items.append(item)
+
     matcher = OutlineMatcher(
         outline, min_score=min_score, max_topics_per_item=max_topics_per_item
     )
-    assignments, report = matcher.match(items)
+    assignments, report = matcher.match(kept_items)
 
     # Persist assignments.
     workspace.topic_assignments_dir.mkdir(parents=True, exist_ok=True)
@@ -337,8 +359,18 @@ def match_project(
     # Persist report.
     workspace.reports_dir.mkdir(parents=True, exist_ok=True)
     report_path = workspace.reports_dir / "topic_assignment_report.json"
+    report_payload = report.to_dict()
+    report_payload["noise_items"] = [
+        {"item_id": d["item_id"], "reason": d["reason"]}
+        for d in dropped_items
+    ]
+    report_payload["noise_filter"] = {
+        "dropped_count": len(dropped_items),
+        "kept_count": len(kept_items),
+        "ruleset": "outline.noise.classify_noise",
+    }
     report_path.write_text(
-        json.dumps(report.to_dict(), ensure_ascii=False, indent=2),
+        json.dumps(report_payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
@@ -355,6 +387,7 @@ def match_project(
             "outline_version": outline.version,
             "total_items": report.total_items,
             "unclassified_count": len(report.unclassified_items),
+            "noise_dropped_count": len(dropped_items),
             "assignments_path": str(assignments_path.relative_to(workspace.root)),
             "report_path": str(report_path.relative_to(workspace.root)),
         },

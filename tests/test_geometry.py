@@ -865,6 +865,32 @@ def test_minimax_provider_uses_anthropic_image_messages(tmp_path: Path) -> None:
     assert image["source"]["type"] == "base64"
 
 
+def test_minimax_token_plan_key_uses_bearer_auth(tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["headers"] = dict(request.headers)
+        captured["url"] = str(request.url)
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "{}"}}]},
+        )
+
+    image_path = tmp_path / "figure.png"
+    _fake_png(image_path)
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    provider = MiniMaxM3Provider(api_key="sk-cp-test-key", client=client)
+    response = provider.analyze_image(image_path, "triangle ABC")
+    client.close()
+
+    assert not response.error
+    headers = captured["headers"]
+    assert isinstance(headers, dict)
+    assert headers["authorization"] == "Bearer sk-cp-test-key"
+    assert "x-api-key" not in headers
+    assert captured["url"] == "https://api.minimaxi.com/v1/chat/completions"
+
+
 # ---------------------------------------------------------------------- #
 # Review state store
 # ---------------------------------------------------------------------- #

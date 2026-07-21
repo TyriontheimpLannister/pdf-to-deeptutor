@@ -3,7 +3,7 @@
   "project_id": "demo-g8-triangle",
   "title": "Demo: 八年级全等三角形",
   "created_at": "2026-07-10T13:41:23+00:00",
-  "updated_at": "2026-07-11T23:16:51+00:00",
+  "updated_at": "2026-07-21T13:34:01+00:00",
   "subject": {
     "subject": "math",
     "stage": "middle-G8"
@@ -58,9 +58,9 @@
       "stage": "stage3_book_view",
       "first_started_at": "2026-07-10T13:41:23+00:00",
       "status": "completed",
-      "last_updated_at": "2026-07-11T23:16:51+00:00",
+      "last_updated_at": "2026-07-21T13:34:01+00:00",
       "input_fingerprint": "3d0411fae3a1ca5602a47374742b394615fdcbf6563075d2e23d6ff969b3da15",
-      "output_fingerprint": "88b2e3cff8d7c0b751aa334e9d45fbb91f33e670cc018ef3c4b549a6cd66a6c1",
+      "output_fingerprint": "3f7700757672be257c19bfa6832a62701dcb443314d14888fcb1d1a9175d6dd0",
       "error": null,
       "metadata": {
         "book_id": "demo-g8-triangle",

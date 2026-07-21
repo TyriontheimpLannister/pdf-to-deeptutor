@@ -1,7 +1,7 @@
 {
   "schema_version": "book_view/v1",
   "book_id": "demo-g8-triangle",
-  "generated_at": "2026-07-11T23:16:51+00:00",
+  "generated_at": "2026-07-21T13:34:01+00:00",
   "fingerprints": {
     "normalized": "3d0411fae3a1ca5602a47374742b394615fdcbf6563075d2e23d6ff969b3da15",
     "layout": "c8cc7739b26970bb83b304641fb37c3db8b4d3577d5008830da0be50b2af6269",
@@ -48,6 +48,7 @@
                 110.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             }
           ]
@@ -89,6 +90,7 @@
                 170.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             },
             {
@@ -125,6 +127,7 @@
                 240.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             }
           ]
@@ -166,6 +169,7 @@
                 450.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             },
             {
@@ -202,6 +206,7 @@
                 500.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             },
             {
@@ -262,6 +267,7 @@
                 920.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             },
             {
@@ -298,6 +304,7 @@
                 100.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             },
             {
@@ -334,6 +341,7 @@
                 200.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             },
             {
@@ -370,6 +378,7 @@
                 260.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             },
             {
@@ -430,6 +439,7 @@
                 700.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             }
           ]
@@ -471,6 +481,7 @@
                 100.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             },
             {
@@ -531,6 +542,7 @@
                 700.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             },
             {
@@ -567,6 +579,7 @@
                 880.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             },
             {
@@ -627,6 +640,7 @@
                 1420.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             },
             {
@@ -663,6 +677,7 @@
                 1600.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             }
           ]
@@ -704,6 +719,7 @@
                 100.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             },
             {
@@ -740,6 +756,7 @@
                 240.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             },
             {
@@ -776,6 +793,7 @@
                 420.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             },
             {
@@ -812,6 +830,7 @@
                 600.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             }
           ]
@@ -853,6 +872,7 @@
                 680.0
               ],
               "topic_ids": [],
+              "topic_match_scores": {},
               "assignment_review_state": "unassigned"
             }
           ]

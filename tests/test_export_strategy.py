@@ -9,9 +9,24 @@ def _book_with_topic_items() -> dict:
                 "sections": [
                     {
                         "items": [
-                            {"item_id": "item-1", "topic_ids": ["topic-a"]},
-                            {"item_id": "item-2", "topic_ids": ["topic-b"]},
-                            {"item_id": "item-3", "topic_ids": ["topic-c"]},
+                            {
+                                "item_id": "item-1",
+                                "title": "item 1 body",
+                                "text": "item 1 body content",
+                                "topic_ids": ["topic-a"],
+                            },
+                            {
+                                "item_id": "item-2",
+                                "title": "item 2 body",
+                                "text": "item 2 body content",
+                                "topic_ids": ["topic-b"],
+                            },
+                            {
+                                "item_id": "item-3",
+                                "title": "item 3 body",
+                                "text": "item 3 body content",
+                                "topic_ids": ["topic-c"],
+                            },
                         ]
                     }
                 ]

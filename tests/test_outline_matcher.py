@@ -256,6 +256,110 @@ def test_match_project_persists_artifacts_and_records_stage(tmp_path: Path) -> N
     assert stage["input_fingerprint"] == OutlineLoader().load(OUTLINE_PATH).sha256
 
 
+def test_match_project_drops_text_noise_items(tmp_path: Path) -> None:
+    """The matcher must filter watermark / page-number noise items
+    *before* scoring and surface them in the report so we can audit
+    what was dropped.
+
+    Real OCR input looks like this: the splitter lifts every ``#``
+    heading into its own chapter item, including pure watermark text
+    and short page-number / symbol headings. The noise filter must
+    drop those headings while keeping math content intact.
+    """
+    ws = create_workspace(
+        tmp_path / "proj",
+        project_id="proj-noise",
+        title="Noise fixture",
+        subject="math",
+        stage="middle-G8",
+    )
+
+    md = (
+        "# Fixture chapter\n\n"
+        "## 第一节 三角形的分类\n\n"
+        "例题 1\n在三角形 ABC 中, 已知角 A = 60 度, 求三角形 ABC 的内角和.\n\n"
+        "# 微信公众号 教辅资料站\n\n"
+        "# 118\n\n"
+        "# U\n\n"
+        "# 10\n\n"
+        "# 8-2\n\n"
+        "## 思考题\n\n"
+        "如果三角形 ABC 中 AB = AC, 那么这个三角形是什么三角形?\n\n"
+    )
+    md_path = tmp_path / "fixture.md"
+    md_path.write_text(md, encoding="utf-8")
+
+    assignments, report = match_project(
+        ws,
+        str(OUTLINE_PATH),
+        markdown_path=str(md_path),
+    )
+
+    assigned_ids = {a.item_id for a in assignments}
+    # Five noise chapter items must be dropped.
+    assert len(assignments) == 3
+    assert "item-0001" in assigned_ids  # chapter heading "Fixture chapter"
+    assert "item-0002" in assigned_ids  # section "第一节 三角形的分类"
+    assert "item-0008" in assigned_ids  # section "思考题"
+
+    report_path = ws.reports_dir / "topic_assignment_report.json"
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    dropped_titles = {entry["item_id"] for entry in payload["noise_items"]}
+    # The splitter tags each heading with item-NNNN; we expect the
+    # five noise chapter headings to be reported.
+    noise_item_ids = {"item-0003", "item-0004", "item-0005", "item-0006", "item-0007"}
+    assert noise_item_ids <= dropped_titles
+    assert payload["noise_filter"]["dropped_count"] == 5
+    assert payload["noise_filter"]["kept_count"] == 3
+    assert payload["noise_filter"]["ruleset"] == "outline.noise.classify_noise"
+
+    manifest = ws.load_manifest()
+    stage = manifest["stages"]["stage4b_outline"]
+    assert stage["metadata"]["noise_dropped_count"] == 5
+
+
+def test_match_project_keeps_short_titled_math_items(tmp_path: Path) -> None:
+    """Regression: a single-character title whose body has real math
+    must NOT be filtered. The OCR pipeline sometimes produces
+    ``title="习"`` for a chapter whose body is a full problem set; we
+    need the math to land in a plan.
+    """
+    ws = create_workspace(
+        tmp_path / "proj",
+        project_id="proj-noise-keep",
+        title="Short title fixture",
+        subject="math",
+        stage="middle-G8",
+    )
+    # ``# 习`` would normally be a single-char Chinese noise heading,
+    # but the body contains a real triangle problem so the chapter
+    # must survive the noise filter.
+    md = (
+        "# Fixture chapter\n\n"
+        "# 习\n\n"
+        "如果三角形 ABC 中 AB = AC, 那么这个三角形是什么三角形? "
+        "请按照这种规律, 填出空格中的图形.\n\n"
+        "## 第一节 三角形的分类\n\n"
+        "例题 1\n在三角形 ABC 中, 已知角 A = 60 度, 求内角和.\n\n"
+    )
+    md_path = tmp_path / "fixture.md"
+    md_path.write_text(md, encoding="utf-8")
+    assignments, report = match_project(
+        ws,
+        str(OUTLINE_PATH),
+        markdown_path=str(md_path),
+    )
+    # Three items: Fixture chapter, "习" chapter (kept because its
+    # body has math), and the section with 例题.
+    assert len(assignments) == 3
+    payload = json.loads(
+        (ws.reports_dir / "topic_assignment_report.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert payload["noise_filter"]["dropped_count"] == 0
+
+
 # ---------------------------------------------------------------------- #
 # Negative-context veto (v1.0.1 vocabulary contract)
 # ---------------------------------------------------------------------- #

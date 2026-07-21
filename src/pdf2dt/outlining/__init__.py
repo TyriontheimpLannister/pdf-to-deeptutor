@@ -25,11 +25,20 @@ from .matcher import (
     TopicAssignment,
     match_project,
 )
+from .noise import (
+    NOISE_TITLE_PATTERNS,
+    NoiseVerdict,
+    classify_noise,
+    is_noise_item,
+    partition_items,
+)
 from .outline import Outline, OutlineLoader, OutlineLoadError, Topic, VocabularyEntry
 
 __all__ = [
     "Item",
     "MatchDetail",
+    "NOISE_TITLE_PATTERNS",
+    "NoiseVerdict",
     "Outline",
     "OutlineLoadError",
     "OutlineLoader",
@@ -37,5 +46,8 @@ __all__ = [
     "Topic",
     "TopicAssignment",
     "VocabularyEntry",
+    "classify_noise",
+    "is_noise_item",
     "match_project",
+    "partition_items",
 ]

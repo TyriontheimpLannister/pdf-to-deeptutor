@@ -5,6 +5,7 @@ Stages orchestrated:
 0 — workspace creation
 1 — MinerU inbox ingestion
 2 — asset localization
+2.5 — document-structure recovery
 4b — topic matching (outline → assignments)
 3 — BookView construction
 4c — export planning
@@ -25,6 +26,7 @@ from typing import Any
 
 from ..assets import AssetDownloader, AssetLocalizer, AssetRegistry
 from ..bookview.builder import build_book_view
+from ..document_structure import recover_document_structure
 from ..export.planner import plan_exports
 from ..export.renderer import render_exports
 from ..geometry import GeometryAnalyzer, analyze_geometry
@@ -79,7 +81,7 @@ class PreFlightFailureError(RuntimeError):
 class PipelineRunner:
     """Run the full pipeline end-to-end.
 
-    Stages 0-2 always run.  Stages 4b/3/4c/7 run only when
+    Stages 0-2.5 always run.  Stages 4b/3/4c/7 run only when
     ``outline_path`` is provided.  This preserves backward compatibility:
     callers that pass no ``outline_path`` get the original Stage 0-2
     behaviour.
@@ -183,7 +185,7 @@ class PipelineRunner:
         )
 
     # ------------------------------------------------------------------ #
-    # Stage 0-2 group (ingest)
+    # Stage 0-2.5 group (ingest and deterministic structure recovery)
     # ------------------------------------------------------------------ #
 
     def _run_ingest(
@@ -196,7 +198,7 @@ class PipelineRunner:
         subject: str | None,
         stage: str | None,
     ) -> tuple[ProjectWorkspace, AssetRegistry]:
-        """Run Stages 0, 1, and 2 — skipping any already-completed stage."""
+        """Run Stages 0, 1, 2, and 2.5 — resuming completed stages."""
         inbox_task_dir = Path(inbox_task_dir)
 
         # Stage 0 — workspace (create or resume)
@@ -224,6 +226,14 @@ class PipelineRunner:
             registry = self._load_existing_registry(workspace)
         else:
             registry = self._run_stage2(workspace, inbox_task_dir)
+
+        # Stage 2.5 — derive reviewable document-level relations.
+        if is_stage_completed(workspace, "stage2_5_document_structure"):
+            record_stage(
+                workspace, "stage2_5_document_structure", status=StageStatus.SKIPPED
+            )
+        else:
+            self._run_document_structure(workspace)
 
         return workspace, registry
 
@@ -426,6 +436,58 @@ class PipelineRunner:
         return AssetRegistry.model_validate(data)
 
     # ------------------------------------------------------------------ #
+    # Stage 2.5 — document structure recovery
+    # ------------------------------------------------------------------ #
+
+    def _run_document_structure(self, workspace: ProjectWorkspace) -> None:
+        """Write the deterministic document-structure sidecar when layout exists."""
+        layout_path = workspace.normalized_dir / "layout.localized.json"
+        if not layout_path.is_file():
+            record_stage(
+                workspace,
+                "stage2_5_document_structure",
+                status=StageStatus.SKIPPED,
+                metadata={"reason": "localized layout is unavailable"},
+            )
+            return
+
+        layout = json.loads(layout_path.read_text(encoding="utf-8"))
+        markdown_path = workspace.normalized_dir / "full.md"
+        markdown_text = (
+            markdown_path.read_text(encoding="utf-8") if markdown_path.is_file() else None
+        )
+        structure = recover_document_structure(layout, markdown_text=markdown_text)
+        output_path = workspace.normalized_dir / "document_structure.json"
+        temp_path = output_path.with_suffix(".json.tmp")
+        temp_path.write_text(
+            json.dumps(structure.to_dict(), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        temp_path.replace(output_path)
+        relation_counts: dict[str, int] = {}
+        for relation in structure.relations:
+            relation_counts[relation.kind] = relation_counts.get(relation.kind, 0) + 1
+        record_stage(
+            workspace,
+            "stage2_5_document_structure",
+            status=StageStatus.COMPLETED,
+            input_fingerprint=_sha256_files(layout_path, markdown_path),
+            output_fingerprint=_sha256_file(output_path),
+            metadata={
+                "structure_path": str(output_path.relative_to(workspace.root)),
+                "blocks": len(structure.blocks),
+                "relations": relation_counts,
+                "alignment_status": structure.alignment.status,
+                "layout_text_coverage": structure.alignment.layout_text_coverage,
+                "layout_text_block_share": structure.alignment.layout_text_block_share,
+                "markdown_images": structure.alignment.markdown_images,
+                "layout_images": structure.alignment.layout_images,
+                "matched_images": structure.alignment.matched_images,
+                "synthetic_blocks": structure.alignment.synthetic_blocks,
+            },
+        )
+
+    # ------------------------------------------------------------------ #
     # Stage 4b — topic matching
     # ------------------------------------------------------------------ #
 
@@ -546,6 +608,19 @@ def run_pipeline(
 
 def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _sha256_files(*paths: Path) -> str:
+    """Hash labeled file contents so every Stage 2.5 input is traceable."""
+    digest = hashlib.sha256()
+    for path in paths:
+        if not path.is_file():
+            continue
+        digest.update(path.name.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def _resolve_relative_ref(url: str, task_dir: Path) -> str:

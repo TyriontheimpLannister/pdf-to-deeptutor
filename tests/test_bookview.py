@@ -69,6 +69,7 @@ from pdf2dt.bookview import (
     BookViewBuildError,
     build_book_view,
 )
+from pdf2dt.document_structure import recover_document_structure
 from pdf2dt.outlining.items import extract_items
 from pdf2dt.outlining.matcher import match_project
 from pdf2dt.project import ProjectWorkspace, create_workspace, load_workspace
@@ -495,6 +496,21 @@ def test_bookview_inherits_topic_assignments(tmp_path: Path) -> None:
         f"observed item topic_ids={[i.topic_ids for i in _all_items(book)]}"
     )
 
+    assignments_data = json.loads(
+        (ws.topic_assignments_dir / "assignments.json").read_text(encoding="utf-8")
+    )
+    scores_by_item = {
+        str(assignment["item_id"]): {
+            str(detail["topic_id"]): int(detail["score"])
+            for detail in assignment.get("match_details") or []
+            if isinstance(detail, dict)
+        }
+        for assignment in assignments_data.get("assignments") or []
+        if isinstance(assignment, dict)
+    }
+    for item in _all_items(book):
+        assert item.topic_match_scores == scores_by_item[item.item_id]
+
     # And at least one of those should be a *pure* single-topic routing
     # (the brief's wording: ``topic_ids == ["geometry-plane-triangles"]``).
     pure_single_topic_hits = [
@@ -568,3 +584,363 @@ def test_bookview_handles_missing_topic_assignments(
             f"{item.item_id} expected review_state 'unassigned', "
             f"got {item.assignment_review_state!r}"
         )
+
+
+def test_bookview_uses_explicit_structure_attachment_before_fallback(tmp_path: Path) -> None:
+    """A non-adjacent figure follows its explicit Stage 2.5 attachment."""
+    ws = create_workspace(
+        tmp_path / "attached-figure",
+        project_id="attached-figure",
+        title="Attached figure",
+        subject="math",
+        stage="middle-G8",
+    )
+    (ws.normalized_dir / "full.md").write_text(
+        "# 第一章\n\n**例题 1**\n\n观察这个图形。\n",
+        encoding="utf-8",
+    )
+    (ws.normalized_dir / "layout.localized.json").write_text(
+        json.dumps(
+            {
+                "pages": [
+                    {
+                        "page_index": 0,
+                        "page_number": 1,
+                        "blocks": [
+                            {
+                                "block_id": "p000-b000",
+                                "type": "heading",
+                                "level": 1,
+                                "text": "第一章",
+                            },
+                            {
+                                "block_id": "p000-b001",
+                                "type": "paragraph",
+                                "text": "观察这个图形。",
+                            },
+                            {
+                                "block_id": "p000-b002",
+                                "type": "heading",
+                                "level": 2,
+                                "text": "补充说明",
+                            },
+                            {
+                                "block_id": "p000-b003",
+                                "type": "figure",
+                                "image_url": "assets/figure.png",
+                                "asset_id": "figure",
+                            },
+                        ],
+                    }
+                ]
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    (ws.normalized_dir / "assets_registry.json").write_text(
+        json.dumps(
+            {
+                "count": 1,
+                "by_url": {"assets/figure.png": "figure"},
+                "assets": [
+                    {
+                        "asset_id": "figure",
+                        "local_path": "assets/figure.png",
+                        "sha256": "a" * 64,
+                        "mime_type": "image/png",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (ws.normalized_dir / "document_structure.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "document_structure/v1",
+                "blocks": [],
+                "relations": [
+                    {
+                        "relation_id": "attached_to:p000-b003:p000-b001",
+                        "kind": "attached_to",
+                        "source_id": "p000-b003",
+                        "target_id": "p000-b001",
+                        "confidence": 0.65,
+                        "evidence": "nearest_preceding_local_context",
+                        "review_state": "suggested",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    book = build_book_view(ws)
+
+    example = next(item for item in _all_items(book) if item.item_type == "example")
+    assert [asset.asset_id for asset in example.asset_refs] == ["figure"]
+
+
+def test_bookview_uses_markdown_fallback_for_image_only_layout(tmp_path: Path) -> None:
+    ws = create_workspace(
+        tmp_path / "markdown-fallback",
+        project_id="markdown-fallback",
+        title="Markdown fallback",
+        subject="math",
+    )
+    first_text = "第一道题观察甲图。" * 25
+    first_extra_text = "第一道题继续观察丙图。" * 25
+    second_text = "第二道题观察乙图。" * 25
+    markdown = (
+        "# 第一章\n\n"
+        "**例题 1**\n\n"
+        f"{first_text}\n\n"
+        "![甲图](assets/a.png)\n\n"
+        f"{first_extra_text}\n\n"
+        "![丙图](assets/c.png)\n\n"
+        "**例题 2**\n\n"
+        f"{second_text}\n\n"
+        "![乙图](assets/b.png)\n"
+    )
+    layout = {
+        "pages": [
+            {
+                "page_index": 0,
+                "page_number": 1,
+                "blocks": [
+                    {
+                        "block_id": "p000-b000",
+                        "type": "figure",
+                        "image_url": "assets/a.png",
+                        "asset_id": "a",
+                    },
+                    {
+                        "block_id": "p000-b001",
+                        "type": "figure",
+                        "image_url": "assets/c.png",
+                        "asset_id": "c",
+                    }
+                ],
+            },
+            {
+                "page_index": 1,
+                "page_number": 2,
+                "blocks": [
+                    {
+                        "block_id": "p001-b000",
+                        "type": "figure",
+                        "image_url": "assets/b.png",
+                        "asset_id": "b",
+                    }
+                ],
+            },
+        ]
+    }
+    (ws.normalized_dir / "full.md").write_text(markdown, encoding="utf-8")
+    (ws.normalized_dir / "layout.localized.json").write_text(
+        json.dumps(layout, ensure_ascii=False), encoding="utf-8"
+    )
+    (ws.normalized_dir / "assets_registry.json").write_text(
+        json.dumps(
+            {
+                "count": 3,
+                "by_url": {
+                    "assets/a.png": "a",
+                    "assets/b.png": "b",
+                    "assets/c.png": "c",
+                },
+                "assets": [
+                    {
+                        "asset_id": "a",
+                        "local_path": "assets/a.png",
+                        "sha256": "a" * 64,
+                        "mime_type": "image/png",
+                    },
+                    {
+                        "asset_id": "b",
+                        "local_path": "assets/b.png",
+                        "sha256": "b" * 64,
+                        "mime_type": "image/png",
+                    },
+                    {
+                        "asset_id": "c",
+                        "local_path": "assets/c.png",
+                        "sha256": "c" * 64,
+                        "mime_type": "image/png",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    structure = recover_document_structure(layout, markdown_text=markdown)
+    (ws.normalized_dir / "document_structure.json").write_text(
+        json.dumps(structure.to_dict(), ensure_ascii=False), encoding="utf-8"
+    )
+
+    book = build_book_view(ws)
+
+    examples = [item for item in _all_items(book) if item.item_type == "example"]
+    assert [[asset.asset_id for asset in item.asset_refs] for item in examples] == [
+        ["a", "c"],
+        ["b"],
+    ]
+    assert all(
+        any(ref.block_id.startswith("md-b") for ref in item.source_block_refs)
+        for item in examples
+    )
+    assert all(item.bbox_union is None for item in examples)
+
+
+def test_explicit_markdown_attachment_is_reserved_from_legacy_cursor(
+    tmp_path: Path,
+) -> None:
+    """An earlier unmatched item cannot steal a later explicit attachment."""
+    ws = create_workspace(
+        tmp_path / "reserved-markdown-attachment",
+        project_id="reserved-markdown-attachment",
+        title="Reserved Markdown attachment",
+        subject="math",
+    )
+    markdown = (
+        "# 第一章\n\n"
+        "## 微信公众号 教辅资料站\n\n"
+        "# 基本应用题\n\n"
+        "观察图片并完成练习。\n\n"
+        "![图](assets/figure.png)\n"
+    )
+    layout = {
+        "pages": [
+            {
+                "page_index": 0,
+                "page_number": 1,
+                "blocks": [
+                    {
+                        "block_id": "p000-b000",
+                        "type": "figure",
+                        "image_url": "assets/figure.png",
+                        "asset_id": "figure",
+                    }
+                ],
+            }
+        ]
+    }
+    (ws.normalized_dir / "full.md").write_text(markdown, encoding="utf-8")
+    (ws.normalized_dir / "layout.localized.json").write_text(
+        json.dumps(layout, ensure_ascii=False), encoding="utf-8"
+    )
+    (ws.normalized_dir / "assets_registry.json").write_text(
+        json.dumps(
+            {
+                "count": 1,
+                "by_url": {"assets/figure.png": "figure"},
+                "assets": [
+                    {
+                        "asset_id": "figure",
+                        "local_path": "assets/figure.png",
+                        "sha256": "f" * 64,
+                        "mime_type": "image/png",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (ws.normalized_dir / "document_structure.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "document_structure/v1",
+                "alignment": {"status": "active"},
+                "blocks": [
+                    {
+                        "block_id": "md-b000001",
+                        "page_index": 0,
+                        "page_number": 1,
+                        "block_type": "paragraph",
+                        "text": "观察图片并完成练习。",
+                        "bbox": None,
+                        "heading_level": None,
+                        "source": "markdown_fallback",
+                        "source_line_start": 7,
+                        "source_line_end": 7,
+                        "anchor_block_id": "p000-b000",
+                        "location_confidence": 0.9,
+                    }
+                ],
+                "relations": [
+                    {
+                        "relation_id": "attached_to:p000-b000:md-b000001",
+                        "kind": "attached_to",
+                        "source_id": "p000-b000",
+                        "target_id": "md-b000001",
+                        "confidence": 0.85,
+                        "evidence": "markdown_image_anchor",
+                        "review_state": "suggested",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    book = build_book_view(ws)
+
+    items = _all_items(book)
+    watermark = next(item for item in items if item.title == "微信公众号 教辅资料站")
+    chapter = next(item for item in items if item.title == "基本应用题")
+    assert watermark.asset_refs == []
+    assert [asset.asset_id for asset in chapter.asset_refs] == ["figure"]
+
+
+def test_bookview_ignores_synthetic_blocks_when_alignment_inactive(tmp_path: Path) -> None:
+    ws = create_workspace(
+        tmp_path / "rich-layout",
+        project_id="rich-layout",
+        title="Rich layout",
+        subject="math",
+    )
+    body = "这是一段完整的布局正文。" * 25
+    markdown = f"# 第一章\n\n{body}\n"
+    layout = {
+        "pages": [
+            {
+                "page_index": 0,
+                "page_number": 1,
+                "blocks": [
+                    {
+                        "block_id": "p000-b000",
+                        "type": "heading",
+                        "level": 1,
+                        "text": "第一章",
+                    },
+                    {
+                        "block_id": "p000-b001",
+                        "type": "paragraph",
+                        "text": body,
+                    },
+                ],
+            }
+        ]
+    }
+    (ws.normalized_dir / "full.md").write_text(markdown, encoding="utf-8")
+    (ws.normalized_dir / "layout.localized.json").write_text(
+        json.dumps(layout, ensure_ascii=False), encoding="utf-8"
+    )
+    (ws.normalized_dir / "assets_registry.json").write_text(
+        json.dumps({"count": 0, "by_url": {}, "assets": []}), encoding="utf-8"
+    )
+    structure = recover_document_structure(layout, markdown_text=markdown)
+    assert structure.alignment.status == "not_needed"
+    (ws.normalized_dir / "document_structure.json").write_text(
+        json.dumps(structure.to_dict(), ensure_ascii=False), encoding="utf-8"
+    )
+
+    book = build_book_view(ws)
+
+    assert not any(
+        ref.block_id.startswith("md-b")
+        for item in _all_items(book)
+        for ref in item.source_block_refs
+    )

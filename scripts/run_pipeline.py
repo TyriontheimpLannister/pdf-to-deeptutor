@@ -49,6 +49,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from pdf2dt.assets import HttpxDownloader, LocalMirrorDownloader  # noqa: E402
+
+sys.path.insert(0, str(ROOT / "scripts"))
 from pdf2dt.bookview import BookViewBuildError, build_book_view  # noqa: E402
 from pdf2dt.export import (  # noqa: E402
     PlanError,
@@ -185,6 +187,34 @@ def main() -> int:
             "is already recorded for each relation)."
         ),
     )
+    p.add_argument(
+        "--classify-figure-roles",
+        action="store_true",
+        help=(
+            "Run Stage 5 figure role classification after Stage 3 (and "
+            "after --geometry, if set). Persists review/figure_roles.json "
+            "and records the stage in the project manifest. Requires "
+            "--book-view. Skipped when stage5_figure_roles is already "
+            "completed; pass --force-figure-roles to re-classify."
+        ),
+    )
+    p.add_argument(
+        "--figure-role-provider",
+        choices=["mock", "minimax-m3", "sensenova"],
+        default="mock",
+        help="Provider for figure role classification. Default 'mock' is offline.",
+    )
+    p.add_argument(
+        "--max-figure-roles",
+        type=int,
+        default=None,
+        help="Cap the number of figures classified (smoke / cost control).",
+    )
+    p.add_argument(
+        "--force-figure-roles",
+        action="store_true",
+        help="Re-run figure role classification even when the stage is completed.",
+    )
     args = p.parse_args()
 
     if args.outline is not None and not args.outline.is_file():
@@ -301,6 +331,63 @@ def main() -> int:
             print(
                 "[stage5] skipped (already completed; pass "
                 "--force-geometry to re-extract)"
+            )
+
+    if args.classify_figure_roles:
+        if not args.book_view:
+            print(
+                "Error: --classify-figure-roles requires --book-view",
+                file=sys.stderr,
+            )
+            return 13
+        # Mirror the geometry guard: skip when already completed unless
+        # --force-figure-roles is passed. The cache key is keyed by
+        # (asset_sha256, model_id, prompt_hash) so re-running without
+        # --force is essentially free.
+        if args.force_figure_roles or not is_stage_completed(
+            result.workspace, "stage5_figure_roles"
+        ):
+            import importlib.util
+
+            from pdf2dt.review.figure_roles import (
+                FigureRole,
+                classify_figure_roles,
+            )
+            _spec = importlib.util.spec_from_file_location(
+                "classify_image_roles",
+                ROOT / "scripts" / "classify_image_roles.py",
+            )
+            _mod = importlib.util.module_from_spec(_spec)
+            _spec.loader.exec_module(_mod)
+            provider = _mod._build_provider(args.figure_role_provider)
+            roles = classify_figure_roles(
+                result.workspace,
+                provider=provider,
+                max_images=args.max_figure_roles,
+            )
+            dist: dict[str, int] = {
+                FigureRole.DECOR.value: 0,
+                FigureRole.AMBIGUOUS.value: 0,
+                FigureRole.CONTENT.value: 0,
+            }
+            for r in roles:
+                dist[r.role.value] = dist.get(r.role.value, 0) + 1
+            print(
+                f"[stage5-figroles] classified={len(roles)}, "
+                f"decor={dist[FigureRole.DECOR.value]}, "
+                f"ambiguous={dist[FigureRole.AMBIGUOUS.value]}, "
+                f"content={dist[FigureRole.CONTENT.value]}, "
+                f"review/figure_roles.json"
+            )
+        else:
+            record_stage(
+                result.workspace,
+                "stage5_figure_roles",
+                status=StageStatus.SKIPPED,
+            )
+            print(
+                "[stage5-figroles] skipped (already completed; pass "
+                "--force-figure-roles to re-classify)"
             )
 
     if args.review is not None:
